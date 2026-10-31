@@ -108,9 +108,11 @@ figure by hand.
 ```
 .
 ├── pom.xml              Maven build (Java 21, JUnit 5)
-├── src/main/java/       Ledger core          (planned)
-├── src/test/java/       Test suite           (planned)
+├── src/main/java/       Ledger core          (interface defined; implementation in progress)
+├── src/test/java/       Test suite           (business-rule invariants, money)
 ├── README.md            This file
+├── BUSINESS-RULES.md    The business rules, each with an ID and the test that enforces it
+├── NUMBERS.md           Every constant and why it has that value
 └── WORKLOG.md           Timestamped log of the work, written as it happens
 ```
 
@@ -120,9 +122,10 @@ figure by hand.
 |---|---|---|
 | [`README.md`](README.md) | Overview, build and run instructions | ✅ |
 | [`WORKLOG.md`](WORKLOG.md) | Timestamped record of the work as it happened | ✅ |
+| [`BUSINESS-RULES.md`](BUSINESS-RULES.md) | The 33 business rules, each traced to the test that enforces it | ✅ (tests filling in) |
 | `AMBIGUITIES.md` | Every ambiguity found and how it was resolved | *planned* |
 | `REJECTED.md` | Incorrect acceptance criteria refused, with reasons, and approaches abandoned | *planned* |
-| `NUMBERS.md` | Every constant used, and why that value | *planned* |
+| [`NUMBERS.md`](NUMBERS.md) | Every constant used, and why that value | ✅ (grows with the code) |
 | Architecture & trade-offs (PDF) | Scale, value dating in production, authorization lifecycle, scope cuts | *planned* |
 
 ## Use of AI assistance
