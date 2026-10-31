@@ -98,7 +98,7 @@ enforces it.
 | BR-32 | A credit can be paid in as several instalments (E10: BHD 10.000 in three) | Stated | Scenario | *planned* |
 | BR-33 | Instalments add up exactly to the original amount; no money is created or lost | Implied | Invariant | *planned* |
 
-**Counts:** 33 rules: 23 stated, 10 implied. 24 invariants, 9 scenario.
+**Counts:** 33 rules: 24 stated, 9 implied. 28 invariants, 5 scenario.
 
 ---
 
