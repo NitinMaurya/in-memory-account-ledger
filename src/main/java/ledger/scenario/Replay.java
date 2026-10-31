@@ -1,6 +1,7 @@
 package ledger.scenario;
 
 import java.util.List;
+import java.util.function.IntConsumer;
 import ledger.core.Event;
 import ledger.core.Ledger;
 
@@ -21,12 +22,18 @@ public final class Replay {
 
     /** {@code afterEachStep} runs after every event applied and every day closed, for invariant checks. */
     public static void run(Ledger ledger, List<Event> events, Runnable afterEachStep) {
+        run(ledger, events, afterEachStep, day -> {});
+    }
+
+    /** As above, and {@code afterDayClosed} also runs with the day number each time a day closes. */
+    public static void run(Ledger ledger, List<Event> events, Runnable afterEachStep, IntConsumer afterDayClosed) {
         int lastClosed = Ledger.FIRST_DAY - 1;
         for (Event event : events) {
             while (lastClosed < event.bookingDay() - 1) {
                 lastClosed++;
                 ledger.closeDay(lastClosed);
                 afterEachStep.run();
+                afterDayClosed.accept(lastClosed);
             }
             ledger.apply(event);
             afterEachStep.run();
@@ -35,6 +42,7 @@ public final class Replay {
             lastClosed++;
             ledger.closeDay(lastClosed);
             afterEachStep.run();
+            afterDayClosed.accept(lastClosed);
         }
     }
 }
