@@ -69,3 +69,24 @@ correction.
 The overflow guards are in place: `Money.plus` uses `Math.addExact` and `Money.negate` uses
 `Math.negateExact`, and `MoneyTest.failsLoudlyInsteadOfOverflowing` proves an overflow throws instead
 of wrapping. *(The interest arithmetic arrives with the interest rules; this section is updated then.)*
+
+---
+
+## Window
+
+| Constant | Value | Why this value | Why not half |
+|---|---|---|---|
+| `FIRST_DAY` | **1** | The brief's window starts on Day 1 | — (there is no Day 0.5; Day 0 is outside the window and refused) |
+| `LAST_DAY` | **6** | The brief's window ends on Day 6, when interest is capitalized | A 3-day window would drop E7–E10: no back-dating, no reversal, no capitalization |
+
+## Overdraft fee
+
+| Constant | Value | Why this value | Why not half |
+|---|---|---|---|
+| `OVERDRAFT_FEE` | **AED 25.00** | Given by the brief: charged when a day's closing balance is negative | AED 12.50 is not the stated tariff; charging it twice a day would break "once per day per account" |
+| Fees per account per day | **at most 1** | "Once per day per account" | — |
+| BHD overdraft fee | **none** | The tariff is quoted only in AED; a BHD fee or an exchange rate would be invented | BHD 25.000 or a converted amount would invent a tariff the brief never gave |
+
+In the brief this gives **three** fees (AED 75.00), dated Days 2, 4 and 5, all charged on Day 5: E7
+(booked Day 5, dated Day 2) turns Days 2 and 4 negative after they had closed, and Day 5 closes
+negative too. Day 3 stays at +5.00 thanks to its 400.00 deposit.

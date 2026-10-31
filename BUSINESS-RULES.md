@@ -76,10 +76,10 @@ enforces it.
 
 | ID | Rule | Source | Kind | Enforced by |
 |---|---|---|---|---|
-| BR-23 | When a day's closing balance is negative, an overdraft fee of AED 25.00 is charged | Stated | Invariant | *planned* |
-| BR-24 | At most one overdraft fee per account per day | Stated | Invariant | *planned* |
-| BR-25 | An overdraft fee is dated to the day it is charged for, even when it is charged later | Stated | Invariant | *planned* |
-| BR-26 | The fee is defined only in AED; no BHD fee exists | Stated | Invariant | *planned* |
+| BR-23 | When a day's closing balance is negative, an overdraft fee of AED 25.00 is charged | Stated | Invariant | `OverdraftFeeTest.br23_…` (boundary: zero is not charged), `BriefScenarioTest` |
+| BR-24 | At most one overdraft fee per account per day | Stated | Invariant | `OverdraftFeeTest.br24_…`, `BusinessRuleInvariantsTest.br24_…` |
+| BR-25 | An overdraft fee is dated to the day it is charged for, even when it is charged later | Stated | Invariant | `OverdraftFeeTest.br25_…`, `BusinessRuleInvariantsTest.br25_…` |
+| BR-26 | The fee is defined only in AED; no BHD fee exists | Stated | Invariant | `OverdraftFeeTest.br26_…` |
 
 ## 9. Interest
 

@@ -149,6 +149,35 @@ class BusinessRuleInvariantsTest {
         });
     }
 
+    @Test
+    void br24_neverTwoFeesForTheSameAccountAndDay() {
+        Ledger ledger = new Ledger(BriefScenario.accounts());
+
+        Replay.run(ledger, BriefScenario.events(), () -> {
+            List<String> charged = new ArrayList<>();
+            for (Entry entry : ledger.entries()) {
+                if (entry.type() == Entry.Type.OVERDRAFT_FEE) {
+                    String accountDay = entry.account() + " Day " + entry.valueDate();
+                    assertTrue(!charged.contains(accountDay), () -> "BR-24 violated: two fees for " + accountDay);
+                    charged.add(accountDay);
+                }
+            }
+        });
+    }
+
+    @Test
+    void br25_noFeeIsEverForADayAfterTheDayItWasBooked() {
+        Ledger ledger = new Ledger(BriefScenario.accounts());
+
+        Replay.run(ledger, BriefScenario.events(), () -> {
+            for (Entry entry : ledger.entries()) {
+                if (entry.type() == Entry.Type.OVERDRAFT_FEE) {
+                    assertTrue(entry.valueDate() <= entry.bookingDay(), () -> "fee for a future day: " + entry);
+                }
+            }
+        });
+    }
+
     private static Event eventWithId(Ledger ledger, String eventId) {
         return ledger.eventLog().stream()
                 .map(LoggedEvent::event)

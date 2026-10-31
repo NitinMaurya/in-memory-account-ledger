@@ -10,10 +10,12 @@ public final class Ledger {
 
     public static final int FIRST_DAY = 1;
     public static final int LAST_DAY = 6;
+    public static final Money OVERDRAFT_FEE = Money.of("25.00", Currency.AED);
 
     private final Map<String, Account> accounts = new LinkedHashMap<>();
     private final List<Entry> entries = new ArrayList<>();
     private final List<LoggedEvent> log = new ArrayList<>();
+    private int lastClosedDay = FIRST_DAY - 1;
 
     public Ledger(List<Account> accounts) {
         for (Account account : accounts) {
@@ -26,6 +28,8 @@ public final class Ledger {
                 .<Outcome>map(Outcome.Rejected::new)
                 .orElseGet(() -> execute(event));
         log.add(new LoggedEvent(event, outcome));
+        // A late or back-dated entry can turn days that already closed negative (E7).
+        chargeOverdraftFees(lastClosedDay, lastClosedDay + 1);
         return outcome;
     }
 
@@ -71,7 +75,12 @@ public final class Ledger {
         if (!inWindow(day)) {
             throw new IllegalArgumentException("Day " + day + " is outside the window");
         }
-        // Not built yet: overdraft fees and interest.
+        if (day != lastClosedDay + 1) {
+            throw new IllegalStateException("Day " + day + " can't close: Day " + (lastClosedDay + 1) + " is next");
+        }
+        chargeOverdraftFees(day, day);
+        lastClosedDay = day;
+        // Not built yet: interest.
     }
 
     /** Sum of entries with value date on or before {@code day}, whenever they were booked. */
@@ -205,6 +214,32 @@ public final class Ledger {
                 && reverse.reversesEventId().equals(eventId));
     }
 
+    /** Charges each day up to {@code throughDay} that closes negative and has no fee yet. */
+    private void chargeOverdraftFees(int throughDay, int bookedOn) {
+        for (Account account : accounts.values()) {
+            if (account.currency() != OVERDRAFT_FEE.currency()) {
+                continue;
+            }
+            for (int day = FIRST_DAY; day <= throughDay; day++) {
+                if (!hasFee(account.id(), day) && closingBalance(account.id(), day).isNegative()) {
+                    String feeId = "FEE-" + account.id() + "-D" + day;
+                    entries.add(new Entry(nextEntryId(), feeId, account.id(), Entry.Type.OVERDRAFT_FEE,
+                            OVERDRAFT_FEE.negate(), bookedOn, day));
+                }
+            }
+        }
+    }
+
+    private boolean hasFee(String account, int day) {
+        return entries.stream().anyMatch(e -> e.type() == Entry.Type.OVERDRAFT_FEE
+                && e.account().equals(account)
+                && e.valueDate() == day);
+    }
+
+    private String nextEntryId() {
+        return "L%04d".formatted(entries.size() + 1);
+    }
+
     private static boolean inWindow(int day) {
         return day >= FIRST_DAY && day <= LAST_DAY;
     }
@@ -218,9 +253,8 @@ public final class Ledger {
     }
 
     private Outcome post(Event event, Entry.Type type, Money signedAmount) {
-        String entryId = "L%04d".formatted(entries.size() + 1);
         entries.add(new Entry(
-                entryId, event.id(), event.account(), type, signedAmount, event.bookingDay(), event.valueDate()));
+                nextEntryId(), event.id(), event.account(), type, signedAmount, event.bookingDay(), event.valueDate()));
         return new Outcome.Accepted();
     }
 }
