@@ -2,7 +2,9 @@ package ledger.core;
 
 import static ledger.core.AppendOnlyCheck.assertOnlyAppended;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -68,6 +70,36 @@ class BusinessRuleInvariantsTest {
                     assertEquals(new Money(expected, account.currency()), ledger.closingBalance(account.id(), day),
                             () -> "BR-8 violated for " + account.id() + " on Day " + d);
                 }
+            }
+        });
+    }
+
+    @Test
+    void br14_authorizationsNeverCreateEntries() {
+        Ledger ledger = new Ledger(BriefScenario.accounts());
+
+        Replay.run(ledger, BriefScenario.events(), () -> {
+            for (LoggedEvent logged : ledger.eventLog()) {
+                if (logged.event() instanceof Event.Authorize authorize) {
+                    for (Entry entry : ledger.entries()) {
+                        assertNotEquals(authorize.id(), entry.eventId(), () -> "BR-14 violated: entry " + entry);
+                    }
+                }
+            }
+        });
+    }
+
+    @Test
+    void br15_everyApprovedAuthorizationLeftAvailableAtOrAboveZero() {
+        Ledger ledger = new Ledger(BriefScenario.accounts());
+
+        Replay.run(ledger, BriefScenario.events(), () -> {
+            List<LoggedEvent> log = ledger.eventLog();
+            LoggedEvent last = log.get(log.size() - 1);
+            if (last.event() instanceof Event.Authorize authorize && last.outcome() instanceof Outcome.Accepted) {
+                assertTrue(ledger.availableBalance(authorize.account()).minorUnits() >= 0,
+                        () -> "BR-15 violated: " + authorize.authId() + " approved with available "
+                                + ledger.availableBalance(authorize.account()));
             }
         });
     }

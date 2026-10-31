@@ -28,6 +28,10 @@ public record Money(long minorUnits, Currency currency) {
         return new Money(Math.addExact(minorUnits, other.minorUnits), currency);
     }
 
+    public boolean isNegative() {
+        return minorUnits < 0;
+    }
+
     public Money negate() {
         return new Money(Math.negateExact(minorUnits), currency);
     }

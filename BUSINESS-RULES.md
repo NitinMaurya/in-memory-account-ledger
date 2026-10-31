@@ -37,8 +37,8 @@ enforces it.
 |---|---|---|---|---|
 | BR-7 | Every transaction has a booking day (when it was recorded) and a value date (the day it counts for), which can differ | Stated | Invariant | `ClosingBalanceTest.br8_…` (a back-dated entry counts from its value date) |
 | BR-8 | A day's closing balance is the sum of all transactions whose value date is on or before that day, whenever they were booked | Stated | Invariant | `BusinessRuleInvariantsTest.br8_…`, `ClosingBalanceTest.br8_…` |
-| BR-9 | Available balance is the ledger balance minus money held for authorizations not yet settled | Stated | Invariant | *planned* |
-| BR-10 | A hold reduces the available balance but never the ledger balance | Stated | Invariant | *planned* |
+| BR-9 | Available balance is the ledger balance minus money held for authorizations not yet settled | Stated | Invariant | `AuthorizationTest.br9_…` |
+| BR-10 | A hold reduces the available balance but never the ledger balance | Stated | Invariant | `AuthorizationTest.br14_br10_…` |
 
 ## 4. Record keeping
 
@@ -52,9 +52,9 @@ enforces it.
 
 | ID | Rule | Source | Kind | Enforced by |
 |---|---|---|---|---|
-| BR-14 | An authorization reserves (holds) money; it does not take it | Implied | Invariant | *planned* |
-| BR-15 | An authorization is approved only if the available balance stays at zero or above once the hold is placed | Stated | Invariant | *planned* |
-| BR-16 | Otherwise it is declined, and no hold is placed | Implied | Invariant | *planned* |
+| BR-14 | An authorization reserves (holds) money; it does not take it | Implied | Invariant | `BusinessRuleInvariantsTest.br14_…`, `AuthorizationTest.br14_br10_…` |
+| BR-15 | An authorization is approved only if the available balance stays at zero or above once the hold is placed | Stated | Invariant | `BusinessRuleInvariantsTest.br15_…`, `AuthorizationTest.br15_…` (boundary at exactly zero) |
+| BR-16 | Otherwise it is declined, and no hold is placed | Implied | Invariant | `AuthorizationTest.br15_br16_…` |
 | BR-17 | A hold stays in place until it is settled; holds do not expire within the six days | Implied | Invariant | *planned* |
 
 ## 6. Card settlements
