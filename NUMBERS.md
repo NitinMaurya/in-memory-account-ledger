@@ -102,3 +102,13 @@ negative too. Day 3 stays at +5.00 thanks to its 400.00 deposit.
 
 In the brief, ACC-001 earns **0.10 + 0.09 + 0.25 + 0.17 + 0.16 + 0.16 = 0.93**, so it ends at
 **390.93**. Freezing each night's balance instead would give 0.81.
+
+## Instalments (E10)
+
+| Constant | Value | Why this value | Why not half |
+|---|---|---|---|
+| E10 instalments | **3** | Given by the brief: "three equal instalments" | Two or six parts would be a different payment schedule |
+| E10 split | **BHD 3.333 + 3.333 + 3.334** | 10.000 BHD = 10,000 fils; 10,000 ÷ 3 = 3,333 remainder **1**. The remainder fils goes to the last part, so the parts add up to exactly 10.000 | Exactly equal parts are impossible at 3 decimal places: 3 × 3.334 = 10.002 creates 2 fils; 3 × 3.333 = 9.999 loses one. More decimal places can't fix it, because 10 ÷ 3 never divides evenly |
+| Smallest instalment | **1 fils** | A zero-value part isn't a payment, so a split into more parts than there are fils is refused | — |
+
+ACC-002 earns 0.04% on 10.000 on Days 5 and 6: 0.004 + 0.004 = **0.008**, so it ends at **10.008**.

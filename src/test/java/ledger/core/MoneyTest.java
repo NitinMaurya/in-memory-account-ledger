@@ -5,6 +5,7 @@ import static ledger.core.Currency.BHD;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class MoneyTest {
@@ -41,5 +42,18 @@ class MoneyTest {
     void failsLoudlyInsteadOfOverflowing() {
         Money max = new Money(Long.MAX_VALUE, AED);
         assertThrows(ArithmeticException.class, () -> max.plus(Money.of("0.01", AED)));
+    }
+
+    @Test
+    void splitsIntoPartsThatAddUpExactly_theLastAbsorbingTheRemainder() {
+        assertEquals(List.of(Money.of("3.333", BHD), Money.of("3.333", BHD), Money.of("3.334", BHD)),
+                Money.of("10.000", BHD).split(3));
+    }
+
+    @Test
+    void splitsEvenlyWhenThereIsNoRemainder() {
+        assertEquals(List.of(Money.of("3.000", BHD), Money.of("3.000", BHD), Money.of("3.000", BHD)),
+                Money.of("9.000", BHD).split(3));
+        assertEquals(List.of(Money.of("10.000", BHD)), Money.of("10.000", BHD).split(1));
     }
 }

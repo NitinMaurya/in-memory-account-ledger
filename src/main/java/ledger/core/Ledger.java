@@ -58,8 +58,7 @@ public final class Ledger {
             case Event.Authorize authorize -> authorize(authorize);
             case Event.Settle settle -> settle(settle);
             case Event.Reverse reverse -> reverse(reverse);
-            // Not built yet: logged, no money moves.
-            default -> new Outcome.Accepted();
+            case Event.InstalmentCredit instalments -> creditInstalments(instalments);
         };
     }
 
@@ -277,6 +276,17 @@ public final class Ledger {
 
     private String nextEntryId() {
         return "L%04d".formatted(entries.size() + 1);
+    }
+
+    // Every part must be at least one fils: a zero instalment is not a payment.
+    private Outcome creditInstalments(Event.InstalmentCredit credit) {
+        if (credit.instalments() < 1 || credit.instalments() > credit.total().minorUnits()) {
+            return new Outcome.Rejected(Outcome.Reason.INVALID_INSTALMENTS);
+        }
+        for (Money part : credit.total().split(credit.instalments())) {
+            post(credit, Entry.Type.INSTALMENT, part);
+        }
+        return new Outcome.Accepted();
     }
 
     private static boolean inWindow(int day) {

@@ -1,6 +1,8 @@
 package ledger.core;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Whole minor units (fils) in a {@code long}: no floating point, no fraction of a fils. See NUMBERS.md. */
 public record Money(long minorUnits, Currency currency) {
@@ -26,6 +28,17 @@ public record Money(long minorUnits, Currency currency) {
             throw new IllegalArgumentException("cannot add " + other.currency + " to " + currency);
         }
         return new Money(Math.addExact(minorUnits, other.minorUnits), currency);
+    }
+
+    /** Equal floored shares; the last part absorbs the remainder, so the parts always add up exactly. */
+    public List<Money> split(int parts) {
+        long share = minorUnits / parts;
+        long remainder = minorUnits % parts;
+        List<Money> split = new ArrayList<>();
+        for (int i = 1; i <= parts; i++) {
+            split.add(new Money(i == parts ? share + remainder : share, currency));
+        }
+        return split;
     }
 
     public boolean isNegative() {

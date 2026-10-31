@@ -95,8 +95,8 @@ enforces it.
 
 | ID | Rule | Source | Kind | Enforced by |
 |---|---|---|---|---|
-| BR-32 | A credit can be paid in as several instalments (E10: BHD 10.000 in three) | Stated | Scenario | *planned* |
-| BR-33 | Instalments add up exactly to the original amount; no money is created or lost | Implied | Invariant | *planned* |
+| BR-32 | A credit can be paid in as several instalments (E10: BHD 10.000 in three) | Stated | Scenario | `InstalmentTest.br32_br33_…`, `BriefScenarioTest` |
+| BR-33 | Instalments add up exactly to the original amount; no money is created or lost | Implied | Invariant | `InstalmentTest.br32_br33_…`, `MoneyTest.splits…`, `BusinessRuleInvariantsTest.br33_…` |
 
 **Counts:** 33 rules: 24 stated, 9 implied. 28 invariants, 5 scenario.
 

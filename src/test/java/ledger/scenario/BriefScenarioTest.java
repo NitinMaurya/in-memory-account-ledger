@@ -48,6 +48,18 @@ class BriefScenarioTest {
         assertEquals(Money.of("390.93", AED), ledger.closingBalance("ACC-001", 6));
     }
 
+    @Test
+    void replayingTheBriefSplitsE10Into3333_3333_3334_andEndsAcc002At10_008() {
+        Ledger ledger = replayTheBrief();
+
+        List<Money> instalments = ledger.entries().stream()
+                .filter(e -> e.type() == Entry.Type.INSTALMENT)
+                .map(Entry::amount)
+                .toList();
+        assertEquals(List.of(Money.of("3.333", BHD), Money.of("3.333", BHD), Money.of("3.334", BHD)), instalments);
+        assertEquals(Money.of("10.008", BHD), ledger.closingBalance("ACC-002", 6));
+    }
+
     private static Ledger replayTheBrief() {
         Ledger ledger = new Ledger(BriefScenario.accounts());
         Replay.run(ledger, BriefScenario.events(), () -> {});

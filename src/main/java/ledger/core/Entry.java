@@ -9,6 +9,7 @@ public record Entry(
         DEBIT,
         SETTLEMENT,
         REVERSAL,
+        INSTALMENT,
         OVERDRAFT_FEE,
         INTEREST
     }

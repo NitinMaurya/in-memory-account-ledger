@@ -198,6 +198,26 @@ class BusinessRuleInvariantsTest {
         });
     }
 
+    @Test
+    void br33_everySplitAddsUpToItsTotalAndNoPartIsZero() {
+        Ledger ledger = new Ledger(BriefScenario.accounts());
+
+        Replay.run(ledger, BriefScenario.events(), () -> {
+            for (LoggedEvent logged : ledger.eventLog()) {
+                if (logged.event() instanceof Event.InstalmentCredit split
+                        && logged.outcome() instanceof Outcome.Accepted) {
+                    List<Entry> parts = ledger.entries().stream()
+                            .filter(e -> e.type() == Entry.Type.INSTALMENT && e.eventId().equals(split.id()))
+                            .toList();
+                    assertEquals(split.instalments(), parts.size());
+                    assertEquals(split.total(), parts.stream().map(Entry::amount)
+                            .reduce(Money.zero(split.total().currency()), Money::plus), "BR-33 violated");
+                    assertTrue(parts.stream().allMatch(p -> p.amount().minorUnits() > 0), "a zero instalment");
+                }
+            }
+        });
+    }
+
     private static Event eventWithId(Ledger ledger, String eventId) {
         return ledger.eventLog().stream()
                 .map(LoggedEvent::event)

@@ -16,6 +16,7 @@ public sealed interface Outcome {
         UNKNOWN_ORIGINAL,
         ALREADY_REVERSED,
         NOT_REVERSIBLE,
+        INVALID_INSTALMENTS,
         DUPLICATE_EVENT_ID,
         UNKNOWN_ACCOUNT,
         OUTSIDE_WINDOW,
