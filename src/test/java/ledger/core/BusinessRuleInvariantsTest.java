@@ -178,6 +178,26 @@ class BusinessRuleInvariantsTest {
         });
     }
 
+    @Test
+    void br30_br31_interestIsCreditedAtMostOnce_onDay6_asTheExactSumOfTheRoundedDays() {
+        Ledger ledger = new Ledger(BriefScenario.accounts());
+
+        Replay.run(ledger, BriefScenario.events(), () -> {
+            for (Account account : BriefScenario.accounts()) {
+                List<Entry> credits = ledger.entries().stream()
+                        .filter(e -> e.type() == Entry.Type.INTEREST && e.account().equals(account.id()))
+                        .toList();
+                assertTrue(credits.size() <= 1, () -> "BR-30 violated: interest credited twice to " + account.id());
+                for (Entry credit : credits) {
+                    assertEquals(Ledger.LAST_DAY, credit.valueDate());
+                    Money sum = ledger.dailyInterest(account.id()).stream()
+                            .reduce(Money.zero(account.currency()), Money::plus);
+                    assertEquals(sum, credit.amount(), () -> "BR-31 violated for " + account.id());
+                }
+            }
+        });
+    }
+
     private static Event eventWithId(Ledger ledger, String eventId) {
         return ledger.eventLog().stream()
                 .map(LoggedEvent::event)

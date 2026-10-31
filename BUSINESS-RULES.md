@@ -85,11 +85,11 @@ enforces it.
 
 | ID | Rule | Source | Kind | Enforced by |
 |---|---|---|---|---|
-| BR-27 | Interest of 0.04% per day is paid on each day's closing balance | Stated | Invariant | *planned* |
-| BR-28 | Only positive balances earn interest; zero and negative balances earn nothing | Stated | Invariant | *planned* |
-| BR-29 | Each day's interest is rounded to the currency's precision | Stated | Invariant | *planned* |
-| BR-30 | Interest is credited once, as a single amount, at the end of Day 6 | Stated | Invariant | *planned* |
-| BR-31 | The credited interest equals exactly the sum of the rounded daily amounts; nothing is discarded | Stated | Invariant | *planned* |
+| BR-27 | Interest of 0.04% per day is paid on each day's closing balance | Stated | Invariant | `InterestTest.br27_br29_…`, `BriefScenarioTest` |
+| BR-28 | Only positive balances earn interest; zero and negative balances earn nothing | Stated | Invariant | `InterestTest.br28_…` |
+| BR-29 | Each day's interest is rounded to the currency's precision | Stated | Invariant | `InterestTest.br29_…` (an exact half rounds up) |
+| BR-30 | Interest is credited once, as a single amount, at the end of Day 6 | Stated | Invariant | `InterestTest.br30_br31_…`, `BusinessRuleInvariantsTest.br30_br31_…` |
+| BR-31 | The credited interest equals exactly the sum of the rounded daily amounts; nothing is discarded | Stated | Invariant | `InterestTest.br30_br31_…`, `BusinessRuleInvariantsTest.br30_br31_…` |
 
 ## 10. Instalments
 

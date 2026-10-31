@@ -11,6 +11,9 @@ public final class Ledger {
     public static final int FIRST_DAY = 1;
     public static final int LAST_DAY = 6;
     public static final Money OVERDRAFT_FEE = Money.of("25.00", Currency.AED);
+    /** 0.04% per day, as a fraction in whole numbers: 4 / 10,000. */
+    public static final long DAILY_INTEREST_NUMERATOR = 4;
+    public static final long DAILY_INTEREST_DENOMINATOR = 10_000;
 
     private final Map<String, Account> accounts = new LinkedHashMap<>();
     private final List<Entry> entries = new ArrayList<>();
@@ -80,7 +83,9 @@ public final class Ledger {
         }
         chargeOverdraftFees(day, day);
         lastClosedDay = day;
-        // Not built yet: interest.
+        if (day == LAST_DAY) {
+            capitalizeInterest();
+        }
     }
 
     /** Sum of entries with value date on or before {@code day}, whenever they were booked. */
@@ -130,8 +135,42 @@ public final class Ledger {
         return authorizations;
     }
 
+    /** Rounded interest for each day 1-6, on the corrected balances, without the interest credit itself. */
     public List<Money> dailyInterest(String account) {
-        throw new UnsupportedOperationException("not implemented yet");
+        Currency currency = account(account).currency();
+        List<Money> daily = new ArrayList<>();
+        for (int day = FIRST_DAY; day <= LAST_DAY; day++) {
+            long balance = balanceBeforeInterest(account, day);
+            daily.add(new Money(balance > 0 ? interestOn(balance) : 0, currency));
+        }
+        return daily;
+    }
+
+    // Half-up rounding to the nearest fils; only ever called for a positive balance.
+    private static long interestOn(long balance) {
+        long scaled = Math.multiplyExact(balance, DAILY_INTEREST_NUMERATOR);
+        return Math.addExact(scaled, DAILY_INTEREST_DENOMINATOR / 2) / DAILY_INTEREST_DENOMINATOR;
+    }
+
+    private long balanceBeforeInterest(String account, int day) {
+        long balance = 0;
+        for (Entry entry : entries) {
+            if (entry.account().equals(account) && entry.valueDate() <= day && entry.type() != Entry.Type.INTEREST) {
+                balance = Math.addExact(balance, entry.amount().minorUnits());
+            }
+        }
+        return balance;
+    }
+
+    private void capitalizeInterest() {
+        for (Account account : accounts.values()) {
+            Money total = dailyInterest(account.id()).stream()
+                    .reduce(Money.zero(account.currency()), Money::plus);
+            if (total.minorUnits() > 0) {
+                entries.add(new Entry(nextEntryId(), "INT-" + account.id() + "-D" + LAST_DAY, account.id(),
+                        Entry.Type.INTEREST, total, LAST_DAY, LAST_DAY));
+            }
+        }
     }
 
     private Authorization stateOf(Event.Authorize authorize, Outcome outcome) {

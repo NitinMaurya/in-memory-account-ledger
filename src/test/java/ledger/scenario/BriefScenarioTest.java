@@ -37,6 +37,17 @@ class BriefScenarioTest {
         }
     }
 
+    @Test
+    void replayingTheBriefEarnsAcc001DailyInterestOf_010_009_025_017_016_016_andEndsAt390_93() {
+        Ledger ledger = replayTheBrief();
+
+        List<Money> expected = List.of("0.10", "0.09", "0.25", "0.17", "0.16", "0.16").stream()
+                .map(amount -> Money.of(amount, AED))
+                .toList();
+        assertEquals(expected, ledger.dailyInterest("ACC-001"));
+        assertEquals(Money.of("390.93", AED), ledger.closingBalance("ACC-001", 6));
+    }
+
     private static Ledger replayTheBrief() {
         Ledger ledger = new Ledger(BriefScenario.accounts());
         Replay.run(ledger, BriefScenario.events(), () -> {});

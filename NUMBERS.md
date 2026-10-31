@@ -66,9 +66,9 @@ correction.
 | Rounding is done by hand | Interest is integer arithmetic: `balance × 4 / 10,000`, rounded half-up as `(balance × 4 + 5,000) / 10,000` for a positive balance, and proved by a test on an exact .5 tie |
 | Raw numbers read poorly (`120000`) | `Money.toString()` prints at the currency's precision: `AED 1200.00`, `BHD 3.334` |
 
-The overflow guards are in place: `Money.plus` uses `Math.addExact` and `Money.negate` uses
-`Math.negateExact`, and `MoneyTest.failsLoudlyInsteadOfOverflowing` proves an overflow throws instead
-of wrapping. *(The interest arithmetic arrives with the interest rules; this section is updated then.)*
+The overflow guards are in place: `Money.plus` uses `Math.addExact`, `Money.negate` uses
+`Math.negateExact`, and the interest arithmetic uses `Math.multiplyExact` / `Math.addExact`.
+`MoneyTest.failsLoudlyInsteadOfOverflowing` proves an overflow throws instead of wrapping.
 
 ---
 
@@ -90,3 +90,15 @@ of wrapping. *(The interest arithmetic arrives with the interest rules; this sec
 In the brief this gives **three** fees (AED 75.00), dated Days 2, 4 and 5, all charged on Day 5: E7
 (booked Day 5, dated Day 2) turns Days 2 and 4 negative after they had closed, and Day 5 closes
 negative too. Day 3 stays at +5.00 thanks to its 400.00 deposit.
+
+## Interest
+
+| Constant | Value | Why this value | Why not half |
+|---|---|---|---|
+| Daily rate | **0.04%** = `DAILY_INTEREST_NUMERATOR / DAILY_INTEREST_DENOMINATOR` = **4 / 10,000** | Given by the brief. Kept as a whole-number fraction so interest is computed in fils, with no floating point | 0.02% is a different product and would halve every accrual |
+| Rounding | **half-up, per day, to the fils** | Each day's accrual must be a real amount in that currency. Half-up is ordinary commercial rounding. In fils: `(balance × 4 + 5,000) / 10,000` | Half-even would only differ on an exact tie, and no balance in the brief lands on one (proved by `InterestTest.br29_anExactHalfFilsRoundsUp`, AED 12.50 → 0.01). Truncating would bias every accrual down |
+| Capitalized amount | **the exact sum of the six rounded days** | The brief requires the rounded days to sum exactly to the credit, so the credit *is* their sum: nothing discarded | Rounding the unrounded total instead could differ by a fils and break the rule (criterion 8) |
+| Balance used | **corrected closing balance, fees included, interest credit excluded** | Interest is only paid on Day 6, when the true balances are known; the credit earning interest would be interest on interest | — |
+
+In the brief, ACC-001 earns **0.10 + 0.09 + 0.25 + 0.17 + 0.16 + 0.16 = 0.93**, so it ends at
+**390.93**. Freezing each night's balance instead would give 0.81.
