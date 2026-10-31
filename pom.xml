@@ -14,6 +14,9 @@
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>5.11.4</junit.version>
+    <!-- The one deliberately failing test is tagged known-gap and left out of the default run.
+         Run it on its own with: mvn test -Dgroups=known-gap -DexcludedGroups= -->
+    <excludedGroups>known-gap</excludedGroups>
   </properties>
 
   <dependencies>

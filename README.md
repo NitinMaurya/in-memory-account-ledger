@@ -89,9 +89,18 @@ mvn -q package
 mvn test
 ```
 
-The suite will contain **one test that fails on purpose**. It documents a known gap in the
-design, and its inline comment explains what it reveals. Instructions for running the passing
-suite on its own will be added here when that test lands. *(planned)*
+This runs every test **except one**: the suite has a single test that **fails on purpose**.
+It is tagged `known-gap` and left out of the default run, so `mvn test` stays a clear pass/fail
+signal. It is not disabled. Run it on its own with:
+
+```bash
+mvn test -Dgroups=known-gap -DexcludedGroups=
+```
+
+It shows that the ledger accepts a back-dated debit with no approver and no reason code: a
+maker-checker control the design does not have. The inline comments in
+[`KnownGapBackDatedDebitApprovalTest`](src/test/java/ledger/core/KnownGapBackDatedDebitApprovalTest.java)
+explain what it reveals and why the control is not built.
 
 ## Running the replay
 
