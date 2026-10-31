@@ -1,4 +1,4 @@
-package ledger;
+package ledger.core;
 
 /**
  * One line in the ledger: money that actually moved. The amount is signed: positive in,

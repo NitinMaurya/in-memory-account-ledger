@@ -1,7 +1,7 @@
-package ledger;
+package ledger.core;
 
-import static ledger.Currency.AED;
-import static ledger.Currency.BHD;
+import static ledger.core.Currency.AED;
+import static ledger.core.Currency.BHD;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 

@@ -107,13 +107,15 @@ figure by hand.
 
 ```
 .
-├── pom.xml              Maven build (Java 21, JUnit 5)
-├── src/main/java/       Ledger core          (interface defined; implementation in progress)
-├── src/test/java/       Test suite           (business-rule invariants, money)
-├── README.md            This file
-├── BUSINESS-RULES.md    The business rules, each with an ID and the test that enforces it
-├── NUMBERS.md           Every constant and why it has that value
-└── WORKLOG.md           Timestamped log of the work, written as it happens
+├── pom.xml                         Maven build (Java 21, JUnit 5)
+├── src/main/java/ledger/core/      Ledger core: knows nothing about the brief
+│                                   (interface defined; implementation in progress)
+├── src/main/java/ledger/scenario/  The brief's accounts and event stream, and the replay
+├── src/test/java/ledger/core/      Test suite (business-rule invariants, money)
+├── README.md                       This file
+├── BUSINESS-RULES.md               The business rules, each with an ID and the test that enforces it
+├── NUMBERS.md                      Every constant and why it has that value
+└── WORKLOG.md                      Timestamped log of the work, written as it happens
 ```
 
 ## Documentation

@@ -1,4 +1,4 @@
-package ledger;
+package ledger.core;
 
 /**
  * Something that is asked of the ledger. Every event carries a unique id, the account it

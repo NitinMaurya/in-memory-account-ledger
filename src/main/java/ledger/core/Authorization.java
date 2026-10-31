@@ -1,4 +1,4 @@
-package ledger;
+package ledger.core;
 
 /** The current state of a card authorization, derived from the events received. */
 public record Authorization(String authId, String account, Money requested, Status status, Money settled) {

@@ -1,4 +1,4 @@
-package ledger;
+package ledger.core;
 
 import java.math.BigDecimal;
 

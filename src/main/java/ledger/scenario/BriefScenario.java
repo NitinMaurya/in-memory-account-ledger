@@ -1,9 +1,12 @@
-package ledger;
+package ledger.scenario;
 
-import static ledger.Currency.AED;
-import static ledger.Currency.BHD;
+import static ledger.core.Currency.AED;
+import static ledger.core.Currency.BHD;
 
 import java.util.List;
+import ledger.core.Account;
+import ledger.core.Event;
+import ledger.core.Money;
 
 /** The accounts and the event stream from the brief, in the order they must be replayed. */
 public final class BriefScenario {

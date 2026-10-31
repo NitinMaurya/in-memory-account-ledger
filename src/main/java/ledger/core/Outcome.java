@@ -1,4 +1,4 @@
-package ledger;
+package ledger.core;
 
 /** The result of applying an event. A refusal is a normal result, not an exception. */
 public sealed interface Outcome {

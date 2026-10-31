@@ -1,9 +1,11 @@
-package ledger;
+package ledger.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Map;
 import java.util.stream.Collectors;
+import ledger.scenario.BriefScenario;
+import ledger.scenario.Replay;
 import org.junit.jupiter.api.Test;
 
 /**

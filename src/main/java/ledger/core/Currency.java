@@ -1,4 +1,4 @@
-package ledger;
+package ledger.core;
 
 /** A currency and the number of decimal places its amounts are kept at. */
 public enum Currency {

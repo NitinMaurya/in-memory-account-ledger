@@ -1,6 +1,8 @@
-package ledger;
+package ledger.scenario;
 
 import java.util.List;
+import ledger.core.Event;
+import ledger.core.Ledger;
 
 /**
  * Replays events in the order given. Before applying an event booked on a later day, it closes
