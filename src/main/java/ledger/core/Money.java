@@ -2,13 +2,10 @@ package ledger.core;
 
 import java.math.BigDecimal;
 
-/**
- * An exact amount of money: a whole number of minor units (fils) in one currency.
- * There is no floating-point arithmetic on money anywhere in the ledger.
- */
+/** Whole minor units (fils) in a {@code long}: no floating point, no fraction of a fils. See NUMBERS.md. */
 public record Money(long minorUnits, Currency currency) {
 
-    /** Parses "1200.00" as 120000 fils of AED. Rejects more decimals than the currency allows. */
+    /** Rejects more decimal places than the currency allows. */
     public static Money of(String amount, Currency currency) {
         BigDecimal value = new BigDecimal(amount);
         if (value.scale() > currency.decimals()) {
@@ -23,7 +20,6 @@ public record Money(long minorUnits, Currency currency) {
         return new Money(0, currency);
     }
 
-    /** The same amount with the opposite sign. Fails loudly rather than overflowing. */
     public Money negate() {
         return new Money(Math.negateExact(minorUnits), currency);
     }

@@ -8,18 +8,10 @@ import ledger.scenario.BriefScenario;
 import ledger.scenario.Replay;
 import org.junit.jupiter.api.Test;
 
-/**
- * Business rules from the brief that must hold at every moment, whatever the implementation.
- * Each one is checked after every single step of the replay: every event applied and every
- * day closed. Test names carry the business-rule id (BR-n) they enforce.
- */
+/** Each rule is checked after every replay step. BR-n ids match BUSINESS-RULES.md. */
 class BusinessRuleInvariantsTest {
 
-    /**
-     * BR-6: amounts are kept at their own currency's precision. Money is held as whole minor
-     * units, so this holds as long as every entry is in its account's currency: AED entries in
-     * hundredths, BHD entries in thousandths.
-     */
+    /** Money is whole minor units, so precision holds if each entry is in its account's currency. */
     @Test
     void br6_everyEntryIsKeptAtItsAccountsCurrencyPrecision() {
         Ledger ledger = new Ledger(BriefScenario.accounts());

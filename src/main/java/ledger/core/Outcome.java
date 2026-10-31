@@ -1,6 +1,6 @@
 package ledger.core;
 
-/** The result of applying an event. A refusal is a normal result, not an exception. */
+/** A refusal is a normal business result, not an exception. */
 public sealed interface Outcome {
 
     record Accepted() implements Outcome {}

@@ -8,7 +8,10 @@ import ledger.core.Account;
 import ledger.core.Event;
 import ledger.core.Money;
 
-/** The accounts and the event stream from the brief, in the order they must be replayed. */
+/**
+ * Exactly as the brief lists them. The oddities are deliberate: Auth-Z (E6) has no authorization,
+ * E7 is back-dated, and E10 comes after E9 although it is booked a day earlier.
+ */
 public final class BriefScenario {
 
     private BriefScenario() {}
