@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public final class Ledger {
 
@@ -21,14 +22,43 @@ public final class Ledger {
     }
 
     public Outcome apply(Event event) {
-        Outcome outcome = switch (event) {
+        Outcome outcome = rejectionFor(event)
+                .<Outcome>map(Outcome.Rejected::new)
+                .orElseGet(() -> accept(event));
+        log.add(new LoggedEvent(event, outcome));
+        return outcome;
+    }
+
+    private Optional<Outcome.Reason> rejectionFor(Event event) {
+        Account account = accounts.get(event.account());
+        if (account == null) {
+            return Optional.of(Outcome.Reason.UNKNOWN_ACCOUNT);
+        }
+        Optional<Money> amount = amountOf(event);
+        if (amount.isPresent() && amount.get().currency() != account.currency()) {
+            return Optional.of(Outcome.Reason.CURRENCY_MISMATCH);
+        }
+        return Optional.empty();
+    }
+
+    private Outcome accept(Event event) {
+        return switch (event) {
             case Event.Credit credit -> post(credit, Entry.Type.CREDIT, credit.amount());
             case Event.Debit debit -> post(debit, Entry.Type.DEBIT, debit.amount().negate());
             // Not built yet: logged, no money moves.
             default -> new Outcome.Accepted();
         };
-        log.add(new LoggedEvent(event, outcome));
-        return outcome;
+    }
+
+    private static Optional<Money> amountOf(Event event) {
+        return switch (event) {
+            case Event.Credit credit -> Optional.of(credit.amount());
+            case Event.Debit debit -> Optional.of(debit.amount());
+            case Event.Authorize authorize -> Optional.of(authorize.amount());
+            case Event.Settle settle -> Optional.of(settle.amount());
+            case Event.InstalmentCredit instalments -> Optional.of(instalments.total());
+            case Event.Reverse reverse -> Optional.empty();
+        };
     }
 
     public void closeDay(int day) {

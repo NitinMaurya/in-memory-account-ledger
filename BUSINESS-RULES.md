@@ -19,9 +19,9 @@ enforces it.
 
 | ID | Rule | Source | Kind | Enforced by |
 |---|---|---|---|---|
-| BR-1 | There are two accounts: ACC-001 in UAE dirhams (AED) and ACC-002 in Bahraini dinars (BHD) | Stated | Scenario | *planned* |
-| BR-2 | Both accounts open with a zero balance | Stated | Scenario | *planned* |
-| BR-3 | Each account operates only in its own currency; no currency conversion takes place | Implied | Invariant | *planned* |
+| BR-1 | There are two accounts: ACC-001 in UAE dirhams (AED) and ACC-002 in Bahraini dinars (BHD) | Stated | Scenario | `BriefScenarioTest.br1_…`; refusal of unknown accounts: `AccountsTest.br1_…` |
+| BR-2 | Both accounts open with a zero balance | Stated | Scenario | `AccountsTest.br2_…` |
+| BR-3 | Each account operates only in its own currency; no currency conversion takes place | Implied | Invariant | `AccountsTest.br3_…`, `MoneyTest.refusesToAddDifferentCurrencies` |
 | BR-4 | The business period is six days, Day 1 to Day 6; all fees and interest relate to it | Stated | Invariant | *planned* |
 
 ## 2. Money and precision
@@ -46,7 +46,7 @@ enforces it.
 |---|---|---|---|---|
 | BR-11 | Nothing recorded is ever changed or deleted | Stated | Invariant | `BusinessRuleInvariantsTest.br11_…` |
 | BR-12 | Mistakes are corrected only by recording a new, opposite transaction (a reversal) | Implied | Invariant | *planned* |
-| BR-13 | Refused requests are recorded with the reason, but move no money | Implied | Invariant | *planned* |
+| BR-13 | Refused requests are recorded with the reason, but move no money | Implied | Invariant | `AccountsTest.br1_…`, `AccountsTest.br3_…` (more refusals to come) |
 
 ## 5. Card authorizations
 
