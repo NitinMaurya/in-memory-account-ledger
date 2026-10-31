@@ -44,7 +44,7 @@ enforces it.
 
 | ID | Rule | Source | Kind | Enforced by |
 |---|---|---|---|---|
-| BR-11 | Nothing recorded is ever changed or deleted | Stated | Invariant | *planned* |
+| BR-11 | Nothing recorded is ever changed or deleted | Stated | Invariant | `BusinessRuleInvariantsTest.br11_…` |
 | BR-12 | Mistakes are corrected only by recording a new, opposite transaction (a reversal) | Implied | Invariant | *planned* |
 | BR-13 | Refused requests are recorded with the reason, but move no money | Implied | Invariant | *planned* |
 

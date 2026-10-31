@@ -1,7 +1,11 @@
 package ledger.core;
 
+import static ledger.core.AppendOnlyCheck.assertOnlyAppended;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import ledger.scenario.BriefScenario;
@@ -24,5 +28,26 @@ class BusinessRuleInvariantsTest {
                         () -> "BR-6 violated by " + entry);
             }
         });
+    }
+
+    @Test
+    void br11_nothingRecordedIsEverChangedOrRemoved() {
+        Ledger ledger = new Ledger(BriefScenario.accounts());
+        List<Entry> entriesBefore = new ArrayList<>();
+        List<LoggedEvent> logBefore = new ArrayList<>();
+
+        Replay.run(ledger, BriefScenario.events(), () -> {
+            assertOnlyAppended("entries", entriesBefore, ledger.entries());
+            assertOnlyAppended("event log", logBefore, ledger.eventLog());
+            entriesBefore.clear();
+            entriesBefore.addAll(ledger.entries());
+            logBefore.clear();
+            logBefore.addAll(ledger.eventLog());
+        });
+
+        assertThrows(UnsupportedOperationException.class, () -> ledger.entries().clear(),
+                "BR-11: entries can be changed from outside the ledger");
+        assertThrows(UnsupportedOperationException.class, () -> ledger.eventLog().clear(),
+                "BR-11: the event log can be changed from outside the ledger");
     }
 }
