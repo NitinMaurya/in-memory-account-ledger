@@ -15,6 +15,7 @@ public sealed interface Outcome {
         DUPLICATE_AUTHORIZATION,
         UNKNOWN_ORIGINAL,
         ALREADY_REVERSED,
+        NOT_REVERSIBLE,
         DUPLICATE_EVENT_ID,
         UNKNOWN_ACCOUNT,
         OUTSIDE_WINDOW,

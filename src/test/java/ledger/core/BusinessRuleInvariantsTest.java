@@ -125,6 +125,30 @@ class BusinessRuleInvariantsTest {
         });
     }
 
+    @Test
+    void br21_everyReversalMirrorsExactlyOneEarlierCreditOrDebitOnTheSameAccount() {
+        Ledger ledger = new Ledger(BriefScenario.accounts());
+
+        Replay.run(ledger, BriefScenario.events(), () -> {
+            List<String> reversed = new ArrayList<>();
+            for (Entry entry : ledger.entries()) {
+                if (entry.type() != Entry.Type.REVERSAL) {
+                    continue;
+                }
+                Event.Reverse reverse = (Event.Reverse) eventWithId(ledger, entry.eventId());
+                Entry original = ledger.entries().stream()
+                        .filter(e -> e.eventId().equals(reverse.reversesEventId()))
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("BR-21 violated: nothing to reverse for " + reverse.id()));
+                assertTrue(original.type() == Entry.Type.CREDIT || original.type() == Entry.Type.DEBIT);
+                assertEquals(original.account(), entry.account());
+                assertEquals(original.amount().negate(), entry.amount(), () -> "BR-21: not the opposite amount");
+                assertTrue(!reversed.contains(original.eventId()), () -> original.eventId() + " reversed twice");
+                reversed.add(original.eventId());
+            }
+        });
+    }
+
     private static Event eventWithId(Ledger ledger, String eventId) {
         return ledger.eventLog().stream()
                 .map(LoggedEvent::event)

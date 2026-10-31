@@ -45,7 +45,7 @@ enforces it.
 | ID | Rule | Source | Kind | Enforced by |
 |---|---|---|---|---|
 | BR-11 | Nothing recorded is ever changed or deleted | Stated | Invariant | `BusinessRuleInvariantsTest.br11_…` |
-| BR-12 | Mistakes are corrected only by recording a new, opposite transaction (a reversal) | Implied | Invariant | *planned* |
+| BR-12 | Mistakes are corrected only by recording a new, opposite transaction (a reversal) | Implied | Invariant | `ReversalTest.br12_…` |
 | BR-13 | Refused requests are recorded with the reason, but move no money | Implied | Invariant | `AccountsTest.br1_…`, `AccountsTest.br3_…` (more refusals to come) |
 
 ## 5. Card authorizations
@@ -69,8 +69,8 @@ enforces it.
 
 | ID | Rule | Source | Kind | Enforced by |
 |---|---|---|---|---|
-| BR-21 | A reversal cancels one specific earlier transaction by recording the opposite amount | Implied | Invariant | *planned* |
-| BR-22 | A reversal carries the value date it is given (E9: Day 2, the same as the transaction it reverses) | Stated | Scenario | *planned* |
+| BR-21 | A reversal cancels one specific earlier transaction by recording the opposite amount | Implied | Invariant | `ReversalTest.br21_…`, `BusinessRuleInvariantsTest.br21_…` |
+| BR-22 | A reversal carries the value date it is given (E9: Day 2, the same as the transaction it reverses) | Stated | Scenario | `ReversalTest.br21_br22_…` |
 
 ## 8. Overdraft fee
 

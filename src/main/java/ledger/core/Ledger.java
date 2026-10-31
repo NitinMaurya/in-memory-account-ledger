@@ -50,6 +50,7 @@ public final class Ledger {
             case Event.Debit debit -> post(debit, Entry.Type.DEBIT, debit.amount().negate());
             case Event.Authorize authorize -> authorize(authorize);
             case Event.Settle settle -> settle(settle);
+            case Event.Reverse reverse -> reverse(reverse);
             // Not built yet: logged, no money moves.
             default -> new Outcome.Accepted();
         };
@@ -177,6 +178,31 @@ public final class Ledger {
             return new Outcome.Rejected(Outcome.Reason.SETTLEMENT_EXCEEDS_HOLD);
         }
         return post(settle, Entry.Type.SETTLEMENT, settle.amount().negate());
+    }
+
+    // Only plain credits and debits can be reversed; a refused request never moved money.
+    private Outcome reverse(Event.Reverse reverse) {
+        Optional<Entry> original = entries.stream()
+                .filter(e -> e.eventId().equals(reverse.reversesEventId()))
+                .filter(e -> e.account().equals(reverse.account()))
+                .findFirst();
+        if (original.isEmpty()) {
+            return new Outcome.Rejected(Outcome.Reason.UNKNOWN_ORIGINAL);
+        }
+        Entry entry = original.get();
+        if (entry.type() != Entry.Type.CREDIT && entry.type() != Entry.Type.DEBIT) {
+            return new Outcome.Rejected(Outcome.Reason.NOT_REVERSIBLE);
+        }
+        if (isReversed(entry.eventId())) {
+            return new Outcome.Rejected(Outcome.Reason.ALREADY_REVERSED);
+        }
+        return post(reverse, Entry.Type.REVERSAL, entry.amount().negate());
+    }
+
+    private boolean isReversed(String eventId) {
+        return log.stream().anyMatch(logged -> logged.event() instanceof Event.Reverse reverse
+                && logged.outcome() instanceof Outcome.Accepted
+                && reverse.reversesEventId().equals(eventId));
     }
 
     private static boolean inWindow(int day) {
