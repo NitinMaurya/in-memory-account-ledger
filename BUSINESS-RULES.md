@@ -29,7 +29,7 @@ enforces it.
 | ID | Rule | Source | Kind | Enforced by |
 |---|---|---|---|---|
 | BR-5 | AED amounts have 2 decimal places; BHD amounts have 3 | Stated | Invariant | `MoneyTest` |
-| BR-6 | Every amount is kept and rounded at its own currency's precision; no fraction of a fils exists on an account | Stated | Invariant | `BusinessRuleInvariantsTest.br6_…` (red: ledger not built yet) |
+| BR-6 | Every amount is kept and rounded at its own currency's precision; no fraction of a fils exists on an account | Stated | Invariant | `BusinessRuleInvariantsTest.br6_…` |
 
 ## 3. Balances
 

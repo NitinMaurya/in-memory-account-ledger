@@ -23,6 +23,11 @@ public record Money(long minorUnits, Currency currency) {
         return new Money(0, currency);
     }
 
+    /** The same amount with the opposite sign. Fails loudly rather than overflowing. */
+    public Money negate() {
+        return new Money(Math.negateExact(minorUnits), currency);
+    }
+
     @Override
     public String toString() {
         return currency + " " + BigDecimal.valueOf(minorUnits, currency.decimals()).toPlainString();
