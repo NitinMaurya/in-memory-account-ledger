@@ -50,4 +50,25 @@ class BusinessRuleInvariantsTest {
         assertThrows(UnsupportedOperationException.class, () -> ledger.eventLog().clear(),
                 "BR-11: the event log can be changed from outside the ledger");
     }
+
+    @Test
+    void br8_closingBalanceIsTheSumOfEntriesValueDatedOnOrBeforeThatDay() {
+        Ledger ledger = new Ledger(BriefScenario.accounts());
+
+        Replay.run(ledger, BriefScenario.events(), () -> {
+            for (Account account : BriefScenario.accounts()) {
+                for (int day = Ledger.FIRST_DAY; day <= Ledger.LAST_DAY; day++) {
+                    long expected = 0;
+                    for (Entry entry : ledger.entries()) {
+                        if (entry.account().equals(account.id()) && entry.valueDate() <= day) {
+                            expected += entry.amount().minorUnits();
+                        }
+                    }
+                    int d = day;
+                    assertEquals(new Money(expected, account.currency()), ledger.closingBalance(account.id(), day),
+                            () -> "BR-8 violated for " + account.id() + " on Day " + d);
+                }
+            }
+        });
+    }
 }

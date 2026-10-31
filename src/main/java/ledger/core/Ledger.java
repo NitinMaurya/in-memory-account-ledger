@@ -37,7 +37,13 @@ public final class Ledger {
 
     /** Sum of entries with value date on or before {@code day}, whenever they were booked. */
     public Money closingBalance(String account, int day) {
-        throw new UnsupportedOperationException("not implemented yet");
+        Money balance = Money.zero(account(account).currency());
+        for (Entry entry : entries) {
+            if (entry.account().equals(account) && entry.valueDate() <= day) {
+                balance = balance.plus(entry.amount());
+            }
+        }
+        return balance;
     }
 
     public Money availableBalance(String account) {
@@ -59,6 +65,14 @@ public final class Ledger {
 
     public List<Money> dailyInterest(String account) {
         throw new UnsupportedOperationException("not implemented yet");
+    }
+
+    private Account account(String id) {
+        Account account = accounts.get(id);
+        if (account == null) {
+            throw new IllegalArgumentException("unknown account " + id);
+        }
+        return account;
     }
 
     private Outcome post(Event event, Entry.Type type, Money signedAmount) {

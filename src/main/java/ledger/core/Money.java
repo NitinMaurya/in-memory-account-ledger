@@ -20,6 +20,14 @@ public record Money(long minorUnits, Currency currency) {
         return new Money(0, currency);
     }
 
+    /** Refuses to add different currencies: AED and BHD are never mixed. */
+    public Money plus(Money other) {
+        if (other.currency != currency) {
+            throw new IllegalArgumentException("cannot add " + other.currency + " to " + currency);
+        }
+        return new Money(Math.addExact(minorUnits, other.minorUnits), currency);
+    }
+
     public Money negate() {
         return new Money(Math.negateExact(minorUnits), currency);
     }

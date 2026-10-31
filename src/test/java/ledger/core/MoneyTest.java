@@ -26,4 +26,20 @@ class MoneyTest {
         assertEquals("AED 25.00", Money.of("25", AED).toString());
         assertEquals("BHD 3.334", Money.of("3.334", BHD).toString());
     }
+
+    @Test
+    void addsAmountsOfTheSameCurrency() {
+        assertEquals(Money.of("250.00", AED), Money.of("1200.00", AED).plus(Money.of("-950.00", AED)));
+    }
+
+    @Test
+    void refusesToAddDifferentCurrencies() {
+        assertThrows(IllegalArgumentException.class, () -> Money.of("1.00", AED).plus(Money.of("1.000", BHD)));
+    }
+
+    @Test
+    void failsLoudlyInsteadOfOverflowing() {
+        Money max = new Money(Long.MAX_VALUE, AED);
+        assertThrows(ArithmeticException.class, () -> max.plus(Money.of("0.01", AED)));
+    }
 }

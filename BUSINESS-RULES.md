@@ -35,8 +35,8 @@ enforces it.
 
 | ID | Rule | Source | Kind | Enforced by |
 |---|---|---|---|---|
-| BR-7 | Every transaction has a booking day (when it was recorded) and a value date (the day it counts for), which can differ | Stated | Invariant | *planned* |
-| BR-8 | A day's closing balance is the sum of all transactions whose value date is on or before that day, whenever they were booked | Stated | Invariant | *planned* |
+| BR-7 | Every transaction has a booking day (when it was recorded) and a value date (the day it counts for), which can differ | Stated | Invariant | `ClosingBalanceTest.br8_…` (a back-dated entry counts from its value date) |
+| BR-8 | A day's closing balance is the sum of all transactions whose value date is on or before that day, whenever they were booked | Stated | Invariant | `BusinessRuleInvariantsTest.br8_…`, `ClosingBalanceTest.br8_…` |
 | BR-9 | Available balance is the ledger balance minus money held for authorizations not yet settled | Stated | Invariant | *planned* |
 | BR-10 | A hold reduces the available balance but never the ledger balance | Stated | Invariant | *planned* |
 

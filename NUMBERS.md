@@ -66,5 +66,6 @@ correction.
 | Rounding is done by hand | Interest is integer arithmetic: `balance × 4 / 10,000`, rounded half-up as `(balance × 4 + 5,000) / 10,000` for a positive balance, and proved by a test on an exact .5 tie |
 | Raw numbers read poorly (`120000`) | `Money.toString()` prints at the currency's precision: `AED 1200.00`, `BHD 3.334` |
 
-*(The interest arithmetic and the `…Exact` guards arrive with the code that uses them. This section
-is updated then.)*
+The overflow guards are in place: `Money.plus` uses `Math.addExact` and `Money.negate` uses
+`Math.negateExact`, and `MoneyTest.failsLoudlyInsteadOfOverflowing` proves an overflow throws instead
+of wrapping. *(The interest arithmetic arrives with the interest rules; this section is updated then.)*
