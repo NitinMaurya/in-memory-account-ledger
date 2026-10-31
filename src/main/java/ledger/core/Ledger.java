@@ -34,6 +34,9 @@ public final class Ledger {
         if (account == null) {
             return Optional.of(Outcome.Reason.UNKNOWN_ACCOUNT);
         }
+        if (!inWindow(event.bookingDay()) || !inWindow(event.valueDate())) {
+            return Optional.of(Outcome.Reason.OUTSIDE_WINDOW);
+        }
         Optional<Money> amount = amountOf(event);
         if (amount.isPresent() && amount.get().currency() != account.currency()) {
             return Optional.of(Outcome.Reason.CURRENCY_MISMATCH);
@@ -62,6 +65,9 @@ public final class Ledger {
     }
 
     public void closeDay(int day) {
+        if (!inWindow(day)) {
+            throw new IllegalArgumentException("Day " + day + " is outside the window");
+        }
         // Not built yet: overdraft fees and interest.
     }
 
@@ -95,6 +101,10 @@ public final class Ledger {
 
     public List<Money> dailyInterest(String account) {
         throw new UnsupportedOperationException("not implemented yet");
+    }
+
+    private static boolean inWindow(int day) {
+        return day >= FIRST_DAY && day <= LAST_DAY;
     }
 
     private Account account(String id) {

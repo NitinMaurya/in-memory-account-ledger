@@ -16,6 +16,7 @@ public sealed interface Outcome {
         ALREADY_REVERSED,
         DUPLICATE_EVENT_ID,
         UNKNOWN_ACCOUNT,
+        OUTSIDE_WINDOW,
         CURRENCY_MISMATCH
     }
 }
