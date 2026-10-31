@@ -1,0 +1,13 @@
+# Local working material, not part of the submission
+reference/
+brief.md
+
+# Build output
+target/
+*.class
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
