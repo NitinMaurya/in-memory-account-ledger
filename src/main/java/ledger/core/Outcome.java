@@ -12,6 +12,7 @@ public sealed interface Outcome {
         UNKNOWN_AUTHORIZATION,
         ALREADY_SETTLED,
         SETTLEMENT_EXCEEDS_HOLD,
+        DUPLICATE_AUTHORIZATION,
         UNKNOWN_ORIGINAL,
         ALREADY_REVERSED,
         DUPLICATE_EVENT_ID,

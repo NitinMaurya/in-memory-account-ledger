@@ -55,15 +55,15 @@ enforces it.
 | BR-14 | An authorization reserves (holds) money; it does not take it | Implied | Invariant | `BusinessRuleInvariantsTest.br14_…`, `AuthorizationTest.br14_br10_…` |
 | BR-15 | An authorization is approved only if the available balance stays at zero or above once the hold is placed | Stated | Invariant | `BusinessRuleInvariantsTest.br15_…`, `AuthorizationTest.br15_…` (boundary at exactly zero) |
 | BR-16 | Otherwise it is declined, and no hold is placed | Implied | Invariant | `AuthorizationTest.br15_br16_…` |
-| BR-17 | A hold stays in place until it is settled; holds do not expire within the six days | Implied | Invariant | *planned* |
+| BR-17 | A hold stays in place until it is settled; holds do not expire within the six days | Implied | Invariant | `SettlementTest.aSettlementForMoreThanTheHoldIsRefusedAndTheHoldStays` |
 
 ## 6. Card settlements
 
 | ID | Rule | Source | Kind | Enforced by |
 |---|---|---|---|---|
-| BR-18 | A settlement takes the money for an earlier authorization and ends that hold | Implied | Invariant | *planned* |
-| BR-19 | A settlement for less than the authorized amount is accepted (Auth-A: 185.00 against 200.00) | Stated | Scenario | *planned* |
-| BR-20 | A settlement for an authorization that doesn't exist is refused, and no money leaves the account | Stated | Invariant | *planned* |
+| BR-18 | A settlement takes the money for an earlier authorization and ends that hold | Implied | Invariant | `SettlementTest.br18_…`, `BusinessRuleInvariantsTest.br18_br20_…` |
+| BR-19 | A settlement for less than the authorized amount is accepted (Auth-A: 185.00 against 200.00) | Stated | Scenario | `SettlementTest.br18_br19_…` |
+| BR-20 | A settlement for an authorization that doesn't exist is refused, and no money leaves the account | Stated | Invariant | `SettlementTest.br20_…`, `BusinessRuleInvariantsTest.br18_br20_…` |
 
 ## 7. Reversals
 

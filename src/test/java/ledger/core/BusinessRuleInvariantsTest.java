@@ -103,4 +103,33 @@ class BusinessRuleInvariantsTest {
             }
         });
     }
+
+    @Test
+    void br18_br20_everySettlementEntryHasAnApprovedAuthorizationAndFitsItsHold() {
+        Ledger ledger = new Ledger(BriefScenario.accounts());
+
+        Replay.run(ledger, BriefScenario.events(), () -> {
+            for (Entry entry : ledger.entries()) {
+                if (entry.type() != Entry.Type.SETTLEMENT) {
+                    continue;
+                }
+                Event.Settle settle = (Event.Settle) eventWithId(ledger, entry.eventId());
+                Authorization authorization = ledger.authorizations().stream()
+                        .filter(a -> a.authId().equals(settle.authId()) && a.account().equals(settle.account()))
+                        .filter(a -> a.status() != Authorization.Status.DECLINED)
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("BR-20 violated: money left for " + settle.authId()));
+                assertTrue(settle.amount().minorUnits() <= authorization.requested().minorUnits(),
+                        () -> "settlement " + settle.id() + " exceeds its hold");
+            }
+        });
+    }
+
+    private static Event eventWithId(Ledger ledger, String eventId) {
+        return ledger.eventLog().stream()
+                .map(LoggedEvent::event)
+                .filter(e -> e.id().equals(eventId))
+                .findFirst()
+                .orElseThrow();
+    }
 }

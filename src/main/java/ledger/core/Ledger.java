@@ -49,6 +49,7 @@ public final class Ledger {
             case Event.Credit credit -> post(credit, Entry.Type.CREDIT, credit.amount());
             case Event.Debit debit -> post(debit, Entry.Type.DEBIT, debit.amount().negate());
             case Event.Authorize authorize -> authorize(authorize);
+            case Event.Settle settle -> settle(settle);
             // Not built yet: logged, no money moves.
             default -> new Outcome.Accepted();
         };
@@ -112,13 +113,8 @@ public final class Ledger {
     public List<Authorization> authorizations() {
         List<Authorization> authorizations = new ArrayList<>();
         for (LoggedEvent logged : log) {
-            if (logged.event() instanceof Event.Authorize authorize) {
-                Authorization.Status status = logged.outcome() instanceof Outcome.Accepted
-                        ? Authorization.Status.ACTIVE
-                        : Authorization.Status.DECLINED;
-                Money nothingSettled = Money.zero(authorize.amount().currency());
-                authorizations.add(new Authorization(
-                        authorize.authId(), authorize.account(), authorize.amount(), status, nothingSettled));
+            if (logged.event() instanceof Event.Authorize authorize && !isDuplicate(logged)) {
+                authorizations.add(stateOf(authorize, logged.outcome()));
             }
         }
         return authorizations;
@@ -128,12 +124,59 @@ public final class Ledger {
         throw new UnsupportedOperationException("not implemented yet");
     }
 
+    private Authorization stateOf(Event.Authorize authorize, Outcome outcome) {
+        if (outcome instanceof Outcome.Rejected) {
+            return new Authorization(authorize.authId(), authorize.account(), authorize.amount(),
+                    Authorization.Status.DECLINED, Money.zero(authorize.amount().currency()));
+        }
+        for (LoggedEvent logged : log) {
+            if (logged.event() instanceof Event.Settle settle
+                    && logged.outcome() instanceof Outcome.Accepted
+                    && settle.authId().equals(authorize.authId())) {
+                return new Authorization(authorize.authId(), authorize.account(), authorize.amount(),
+                        Authorization.Status.SETTLED, settle.amount());
+            }
+        }
+        return new Authorization(authorize.authId(), authorize.account(), authorize.amount(),
+                Authorization.Status.ACTIVE, Money.zero(authorize.amount().currency()));
+    }
+
+    private static boolean isDuplicate(LoggedEvent logged) {
+        return logged.outcome() instanceof Outcome.Rejected rejected
+                && rejected.reason() == Outcome.Reason.DUPLICATE_AUTHORIZATION;
+    }
+
+    private Optional<Authorization> authorizationFor(String authId) {
+        return authorizations().stream().filter(a -> a.authId().equals(authId)).findFirst();
+    }
+
     private Outcome authorize(Event.Authorize authorize) {
+        if (authorizationFor(authorize.authId()).isPresent()) {
+            return new Outcome.Rejected(Outcome.Reason.DUPLICATE_AUTHORIZATION);
+        }
         Money availableAfterHold = availableBalance(authorize.account()).plus(authorize.amount().negate());
         if (availableAfterHold.isNegative()) {
             return new Outcome.Rejected(Outcome.Reason.INSUFFICIENT_AVAILABLE);
         }
         return new Outcome.Accepted();
+    }
+
+    // A declined authorization, or one on another account, has no hold to settle against.
+    private Outcome settle(Event.Settle settle) {
+        Optional<Authorization> found = authorizationFor(settle.authId())
+                .filter(a -> a.account().equals(settle.account()))
+                .filter(a -> a.status() != Authorization.Status.DECLINED);
+        if (found.isEmpty()) {
+            return new Outcome.Rejected(Outcome.Reason.UNKNOWN_AUTHORIZATION);
+        }
+        Authorization authorization = found.get();
+        if (authorization.status() == Authorization.Status.SETTLED) {
+            return new Outcome.Rejected(Outcome.Reason.ALREADY_SETTLED);
+        }
+        if (settle.amount().minorUnits() > authorization.requested().minorUnits()) {
+            return new Outcome.Rejected(Outcome.Reason.SETTLEMENT_EXCEEDS_HOLD);
+        }
+        return post(settle, Entry.Type.SETTLEMENT, settle.amount().negate());
     }
 
     private static boolean inWindow(int day) {
