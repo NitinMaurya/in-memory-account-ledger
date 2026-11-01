@@ -33,6 +33,20 @@ class BusinessRuleInvariantsTest {
     }
 
     @Test
+    void br34_noTwoAcceptedRequestsShareAnId() {
+        Ledger ledger = new Ledger(BriefScenario.accounts());
+
+        Replay.run(ledger, BriefScenario.events(), () -> {
+            List<String> acceptedIds = ledger.eventLog().stream()
+                    .filter(logged -> logged.outcome() instanceof Outcome.Accepted)
+                    .map(logged -> logged.event().id())
+                    .toList();
+            assertEquals(acceptedIds.size(), acceptedIds.stream().distinct().count(),
+                    () -> "BR-34 violated: " + acceptedIds);
+        });
+    }
+
+    @Test
     void br11_nothingRecordedIsEverChangedOrRemoved() {
         Ledger ledger = new Ledger(BriefScenario.accounts());
         List<Entry> entriesBefore = new ArrayList<>();
@@ -97,9 +111,9 @@ class BusinessRuleInvariantsTest {
             List<LoggedEvent> log = ledger.eventLog();
             LoggedEvent last = log.get(log.size() - 1);
             if (last.event() instanceof Event.Authorize authorize && last.outcome() instanceof Outcome.Accepted) {
-                assertTrue(ledger.availableBalance(authorize.account()).minorUnits() >= 0,
+                assertTrue(ledger.availableBalance(authorize.account(), authorize.bookingDay()).minorUnits() >= 0,
                         () -> "BR-15 violated: " + authorize.authId() + " approved with available "
-                                + ledger.availableBalance(authorize.account()));
+                                + ledger.availableBalance(authorize.account(), authorize.bookingDay()));
             }
         });
     }

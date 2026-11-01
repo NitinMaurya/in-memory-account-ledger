@@ -28,7 +28,7 @@ class SettlementTest {
         assertEquals(Entry.Type.SETTLEMENT, settlement.type());
         assertEquals(aed("-185.00"), settlement.amount());
         assertEquals(aed("65.00"), ledger.closingBalance("ACC-001", 4));
-        assertEquals(aed("65.00"), ledger.availableBalance("ACC-001"));
+        assertEquals(aed("65.00"), ledger.availableBalance("ACC-001", 4));
         assertEquals(
                 new Authorization("Auth-A", "ACC-001", aed("200.00"), Authorization.Status.SETTLED, aed("185.00")),
                 ledger.authorizations().get(0));
@@ -37,7 +37,7 @@ class SettlementTest {
     @Test
     void br18_aSettlementForTheFullHoldIsAccepted() {
         assertEquals(ACCEPTED, ledger.apply(settle("S1", "ACC-001", "Auth-A", "200.00")));
-        assertEquals(aed("50.00"), ledger.availableBalance("ACC-001"));
+        assertEquals(aed("50.00"), ledger.availableBalance("ACC-001", 4));
     }
 
     @Test
@@ -55,7 +55,7 @@ class SettlementTest {
                 ledger.apply(settle("S1", "ACC-001", "Auth-A", "200.01")));
 
         assertEquals(1, ledger.entries().size());
-        assertEquals(aed("50.00"), ledger.availableBalance("ACC-001"));
+        assertEquals(aed("50.00"), ledger.availableBalance("ACC-001", 4));
     }
 
     @Test
@@ -88,7 +88,7 @@ class SettlementTest {
     void anAuthorizationReusingAnExistingIdIsRefusedAndPlacesNoHold() {
         assertEquals(rejected(Outcome.Reason.DUPLICATE_AUTHORIZATION),
                 ledger.apply(new Event.Authorize("A2", "ACC-001", "Auth-A", aed("10.00"), 2, 2)));
-        assertEquals(aed("50.00"), ledger.availableBalance("ACC-001"));
+        assertEquals(aed("50.00"), ledger.availableBalance("ACC-001", 4));
     }
 
     private static Event settle(String id, String account, String authId, String amount) {

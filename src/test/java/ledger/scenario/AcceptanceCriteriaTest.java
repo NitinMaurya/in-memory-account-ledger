@@ -65,7 +65,7 @@ class AcceptanceCriteriaTest {
         Replay.run(ledger, BriefScenario.events(), () -> {}, day -> {
             if (day == 2) {
                 day2.add(ledger.closingBalance(ACC_001, 2));
-                day2.add(ledger.availableBalance(ACC_001));
+                day2.add(ledger.availableBalance(ACC_001, 2));
             }
         });
 

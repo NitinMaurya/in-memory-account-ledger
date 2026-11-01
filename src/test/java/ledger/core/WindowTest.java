@@ -42,6 +42,23 @@ class WindowTest {
     }
 
     @Test
+    void br4_br31_aRequestAfterDay6HasClosedIsRefused_soTheInterestCreditStillEqualsTheDailySum() {
+        ledger.apply(credit("C1", 1, 1));
+        for (int day = Ledger.FIRST_DAY; day <= Ledger.LAST_DAY; day++) {
+            ledger.closeDay(day);
+        }
+        int entriesAfterTheWindow = ledger.entries().size();
+
+        Outcome outcome = ledger.apply(credit("C2", 6, 1));
+
+        assertEquals(new Outcome.Rejected(Outcome.Reason.OUTSIDE_WINDOW), outcome);
+        assertEquals(entriesAfterTheWindow, ledger.entries().size());
+        Money credited = ledger.entries().stream().filter(e -> e.type() == Entry.Type.INTEREST)
+                .map(Entry::amount).findFirst().orElseThrow();
+        assertEquals(credited, ledger.dailyInterest("ACC-001").stream().reduce(Money::plus).orElseThrow());
+    }
+
+    @Test
     void br4_closingADayOutsideTheWindowIsACallerMistake() {
         assertThrows(IllegalArgumentException.class, () -> ledger.closeDay(0));
         assertThrows(IllegalArgumentException.class, () -> ledger.closeDay(7));

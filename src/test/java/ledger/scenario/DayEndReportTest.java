@@ -16,6 +16,12 @@ class DayEndReportTest {
     }
 
     @Test
+    void showsTheInterestEntriesActuallyPosted() {
+        assertTrue(report.contains("Interest credited on Day 6 (included in Day 6): ACC-001 AED 1.03, ACC-002 BHD 0.008"),
+                report);
+    }
+
+    @Test
     void showsBothRefusalsAsErrorsOnTheDayTheyHappened() {
         assertTrue(rowFor("DAY-END LOG", "4", "UNKNOWN_AUTHORIZATION").contains("E6 Auth-Z"), report);
         assertTrue(rowFor("DAY-END LOG", "5", "INSUFFICIENT_AVAILABLE").contains("E8 Auth-B"), report);

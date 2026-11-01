@@ -46,7 +46,7 @@ public final class DayEndReport {
         List<String> balances = new ArrayList<>(List.of(String.valueOf(day)));
         for (Account account : accounts) {
             balances.add(amount(ledger.closingBalance(account.id(), day)));
-            balances.add(amount(ledger.availableBalance(account.id())));
+            balances.add(amount(ledger.availableBalance(account.id(), day)));
         }
         balances.add(String.join("; ", authorizationStates()));
         balanceRows.add(balances);
@@ -79,7 +79,7 @@ public final class DayEndReport {
         List<String> credited = new ArrayList<>();
         List<String> finals = new ArrayList<>();
         for (Account account : accounts) {
-            credited.add(account.id() + " " + sum(ledger.dailyInterest(account.id())));
+            credited.add(account.id() + " " + interestCredited(account));
             finals.add(account.id() + " " + ledger.closingBalance(account.id(), Ledger.LAST_DAY));
         }
         out.append("Interest credited on Day 6 (included in Day 6): ").append(String.join(", ", credited)).append('\n');
@@ -176,8 +176,11 @@ public final class DayEndReport {
         };
     }
 
-    private static Money sum(List<Money> amounts) {
-        return amounts.stream().reduce(Money::plus).orElseThrow();
+    private Money interestCredited(Account account) {
+        return ledger.entries().stream()
+                .filter(e -> e.type() == Entry.Type.INTEREST && e.account().equals(account.id()))
+                .map(Entry::amount)
+                .reduce(Money.zero(account.currency()), Money::plus);
     }
 
     private static String amount(Money money) {

@@ -10,8 +10,7 @@ enforces it.
   - *Invariant*: true at every moment, for any sequence of events. Checked after every step of the
     replay.
   - *Scenario*: true for the brief's event stream specifically.
-- **Enforced by.** The test that proves it. *Planned* means the test hasn't been written yet. This
-  file is updated as each one lands.
+- **Enforced by.** The test that proves it. Every rule has at least one.
 
 ---
 
@@ -22,7 +21,7 @@ enforces it.
 | BR-1 | There are two accounts: ACC-001 in UAE dirhams (AED) and ACC-002 in Bahraini dinars (BHD) | Stated | Scenario | `BriefScenarioTest.br1_…`; refusal of unknown accounts: `AccountsTest.br1_…` |
 | BR-2 | Both accounts open with a zero balance | Stated | Scenario | `AccountsTest.br2_…` |
 | BR-3 | Each account operates only in its own currency; no currency conversion takes place | Implied | Invariant | `AccountsTest.br3_…`, `MoneyTest.refusesToAddDifferentCurrencies` |
-| BR-4 | The business period is six days, Day 1 to Day 6; all fees and interest relate to it | Stated | Invariant | `WindowTest.br4_…` |
+| BR-4 | The business period is six days, Day 1 to Day 6; all fees and interest relate to it, and nothing is accepted once Day 6 has closed | Stated | Invariant | `WindowTest.br4_…`, `WindowTest.br4_br31_…` (after Day 6) |
 
 ## 2. Money and precision
 
@@ -37,7 +36,7 @@ enforces it.
 |---|---|---|---|---|
 | BR-7 | Every transaction has a booking day (when it was recorded) and a value date (the day it counts for), which can differ | Stated | Invariant | `ClosingBalanceTest.br8_…` (a back-dated entry counts from its value date) |
 | BR-8 | A day's closing balance is the sum of all transactions whose value date is on or before that day, whenever they were booked | Stated | Invariant | `BusinessRuleInvariantsTest.br8_…`, `ClosingBalanceTest.br8_…` |
-| BR-9 | Available balance is the ledger balance minus money held for authorizations not yet settled | Stated | Invariant | `AuthorizationTest.br9_…` |
+| BR-9 | Available balance is the ledger balance minus money held for authorizations not yet settled. The ledger balance is the one on the day of the request: a back-dated entry already posted counts, money dated later doesn't (A15) | Stated | Invariant | `AuthorizationTest.br9_…`, `AuthorizationTest.br9_br15_…` |
 | BR-10 | A hold reduces the available balance but never the ledger balance | Stated | Invariant | `AuthorizationTest.br14_br10_…` |
 
 ## 4. Record keeping
@@ -46,7 +45,8 @@ enforces it.
 |---|---|---|---|---|
 | BR-11 | Nothing recorded is ever changed or deleted | Stated | Invariant | `BusinessRuleInvariantsTest.br11_…` |
 | BR-12 | Mistakes are corrected only by recording a new, opposite transaction (a reversal) | Implied | Invariant | `ReversalTest.br12_…` |
-| BR-13 | Refused requests are recorded with the reason, but move no money | Implied | Invariant | `AccountsTest.br1_…`, `AccountsTest.br3_…` (more refusals to come) |
+| BR-13 | Refused requests are recorded with the reason, but move no money | Implied | Invariant | `AccountsTest.br1_…`, `AccountsTest.br3_…`, `WindowTest.br4_…`, `SettlementTest.br20_…` |
+| BR-34 | Each request is processed once: a request whose ID was already used is refused, so a retry never moves money twice | Implied | Invariant | `AccountsTest.br34_…`, `BusinessRuleInvariantsTest.br34_…` |
 
 ## 5. Card authorizations
 
@@ -62,8 +62,8 @@ enforces it.
 | ID | Rule | Source | Kind | Enforced by |
 |---|---|---|---|---|
 | BR-18 | A settlement takes the money for an earlier authorization and ends that hold | Implied | Invariant | `SettlementTest.br18_…`, `BusinessRuleInvariantsTest.br18_br20_…` |
-| BR-19 | A settlement for less than the authorized amount is accepted (Auth-A: 185.00 against 200.00) | Stated | Scenario | `SettlementTest.br18_br19_…` |
-| BR-20 | A settlement for an authorization that doesn't exist is refused, and no money leaves the account | Stated | Invariant | `SettlementTest.br20_…`, `BusinessRuleInvariantsTest.br18_br20_…` |
+| BR-19 | A settlement for less than the authorized amount is accepted (Auth-A: 185.00 against 200.00) | Stated (criterion 3, checked and accepted) | Scenario | `SettlementTest.br18_br19_…` |
+| BR-20 | A settlement for an authorization that doesn't exist is refused, and no money leaves the account | Stated (criterion 4, checked and accepted) | Invariant | `SettlementTest.br20_…`, `BusinessRuleInvariantsTest.br18_br20_…` |
 
 ## 7. Reversals
 
@@ -78,8 +78,8 @@ enforces it.
 |---|---|---|---|---|
 | BR-23 | When a day's closing balance is negative, an overdraft fee of AED 25.00 is charged | Stated | Invariant | `OverdraftFeeTest.br23_…` (boundary: zero is not charged), `BriefScenarioTest` |
 | BR-24 | At most one overdraft fee per account per day | Stated | Invariant | `OverdraftFeeTest.br24_…`, `BusinessRuleInvariantsTest.br24_…` |
-| BR-25 | An overdraft fee is dated to the day it is charged for, even when it is charged later | Stated | Invariant | `OverdraftFeeTest.br25_…`, `BusinessRuleInvariantsTest.br25_…` |
-| BR-26 | The fee is defined only in AED; no BHD fee exists | Stated | Invariant | `OverdraftFeeTest.br26_…` |
+| BR-25 | An overdraft fee is dated to the day it is charged for, even when it is charged later (charging closed days later is decision A1) | Stated | Invariant | `OverdraftFeeTest.br25_…`, `BusinessRuleInvariantsTest.br25_…` |
+| BR-26 | The fee is defined only in AED; no BHD fee exists (decision A18) | Implied | Invariant | `OverdraftFeeTest.br26_…` |
 
 ## 9. Interest
 
@@ -98,7 +98,7 @@ enforces it.
 | BR-32 | A credit can be paid in as several instalments (E10: BHD 10.000 in three) | Stated | Scenario | `InstalmentTest.br32_br33_…`, `BriefScenarioTest` |
 | BR-33 | Instalments add up exactly to the original amount; no money is created or lost | Implied | Invariant | `InstalmentTest.br32_br33_…`, `MoneyTest.splits…`, `BusinessRuleInvariantsTest.br33_…` |
 
-**Counts:** 33 rules: 24 stated, 9 implied. 28 invariants, 5 scenario.
+**Counts:** 34 rules: 23 stated, 11 implied. 29 invariants, 5 scenario.
 
 ---
 
@@ -113,8 +113,9 @@ enforces it.
 ## Where the rules are silent
 
 These are not rules. They are gaps where the brief gives no answer, so a decision had to be made.
-Each is recorded, with its alternatives and reasoning, in `AMBIGUITIES.md`. Tests that pin these
-decisions are labelled as *policy*, kept separate from the business-rule tests above.
+Each is recorded, with its alternatives and reasoning, in `AMBIGUITIES.md`, which names the test
+that pins it. Tests for policy P-1 carry the `p1_` prefix; the others sit with the rule they
+interpret (for example A1 under `br25_`).
 
 1. Does a back-dated transaction trigger fees for days already closed?
 2. Are fees refunded when the transaction that caused them is reversed? (Decided as policy P-1:
@@ -124,3 +125,7 @@ decisions are labelled as *policy*, kept separate from the business-rule tests a
    authorization?
 5. When instalments cannot be exactly equal, which one takes the leftover fils?
 6. What happens if the BHD account goes negative, when the fee exists only in AED?
+7. Does a fee count towards the next day's fee check? (Yes: the brief's closing balance is all
+   entries, fees included. A36.)
+8. Does a back-dated credit that clears a day refund its fee? (No: only a reversal does. A37.)
+9. What happens to a request that arrives after Day 6 has closed? (Refused. A39.)

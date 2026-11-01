@@ -43,6 +43,39 @@ class AccountsTest {
     }
 
     @Test
+    void br34_aRequestWhoseIdWasAlreadyUsedIsRefused_soARetryNeverMovesMoneyTwice() {
+        Event credit = new Event.Credit("C1", "ACC-001", Money.of("1000.00", AED), 1, 1);
+        ledger.apply(credit);
+
+        Outcome retry = ledger.apply(credit);
+
+        assertEquals(new Outcome.Rejected(Outcome.Reason.DUPLICATE_EVENT_ID), retry);
+        assertEquals(1, ledger.entries().size());
+        assertEquals(Money.of("1000.00", AED), ledger.closingBalance("ACC-001", 1));
+        assertEquals(2, ledger.eventLog().size());
+    }
+
+    @Test
+    void br34_aResentAuthorizationDoesNotShowUpAsASecondAuthorization() {
+        ledger.apply(new Event.Credit("C1", "ACC-001", Money.of("250.00", AED), 1, 1));
+        Event authorize = new Event.Authorize("A1", "ACC-001", "Auth-A", Money.of("200.00", AED), 2, 2);
+        ledger.apply(authorize);
+
+        assertEquals(new Outcome.Rejected(Outcome.Reason.DUPLICATE_EVENT_ID), ledger.apply(authorize));
+        assertEquals(1, ledger.authorizations().size());
+        assertEquals(Authorization.Status.ACTIVE, ledger.authorizations().get(0).status());
+    }
+
+    @Test
+    void br34_aRefusedRequestsIdIsUsedUpToo() {
+        ledger.apply(new Event.Credit("X1", "ACC-999", Money.of("100.00", AED), 1, 1));
+
+        assertEquals(new Outcome.Rejected(Outcome.Reason.DUPLICATE_EVENT_ID),
+                ledger.apply(new Event.Credit("X1", "ACC-001", Money.of("100.00", AED), 1, 1)));
+        assertTrue(ledger.entries().isEmpty());
+    }
+
+    @Test
     void br3_anAmountInAnotherCurrencyIsRefusedAndMovesNoMoney() {
         Event bhdIntoAedAccount = new Event.Credit("X2", "ACC-001", Money.of("10.000", BHD), 1, 1);
 

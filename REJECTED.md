@@ -12,7 +12,7 @@ verdict below is backed by a test in `AcceptanceCriteriaTest`, run against the b
 E7 is booked on Day 5 but dated Day 2. A day's closing balance counts every entry dated on or before
 that day, so E7 lowers Day 2 **and every later day** by 620.00:
 
-| Day | Before E7 | With E7, before fees | Fee? |
+| Day | Before E7 | With E7, before that day's fee | Fee? |
 |---|---|---|---|
 | 2 | 250.00 | −370.00 | **Yes** |
 | 3 | 650.00 | −370.00 + 400.00 − 25.00 (the Day 2 fee) = **+5.00** | No |
@@ -48,9 +48,9 @@ credits exactly the sum of the rounded days, so there is never a remainder: ACC-
 |---|---|---|---|
 | 1 | Day 2 at end of Day 5, before any fee, is AED −370.00 | 250.00 − 620.00. The Day 2 fee is already on the book by then, so this is the balance excluding fees | `criterion1_accepted_…` |
 | 3 | The Day 4 settlement of Auth-A must be accepted | A capture for less than the hold (185.00 of 200.00) is valid; the whole hold is released | `criterion3_accepted_…` |
-| 4 | A settlement for an unknown authorization is rejected and no funds leave | E6 (Auth-Z) is refused, recorded, and creates no entry | `criterion4_accepted_…` |
+| 4 | A settlement for an unknown authorization is rejected and no funds leave | With no authorization there is no hold and no evidence the customer agreed, so E6 (Auth-Z) is refused, recorded, and creates no entry. In a real bank the amount still leaves the bank, from a suspense account, pending investigation (AMBIGUITIES.md, A14) | `criterion4_accepted_…` |
 | 5 | If Auth-B is approved, its hold reduces available, not ledger | True as a rule, shown with Auth-A on Day 2 (ledger 250.00, available 50.00). Its condition never happens: Auth-B is **declined** | `criterion5_accepted_…` |
-| 6 | After E9, all balances and fees return to their pre-E7 values | True under my refund policy (AMBIGUITIES.md, A4). See below | `criterion6_accepted_…` |
+| 6 | After E9, all balances and fees return to their pre-E7 values | **Conditional:** true only under my refund policy (AMBIGUITIES.md, A4). See below | `criterion6_accepted_…` |
 
 ### Criterion 6: accepted, and how
 
@@ -82,9 +82,9 @@ the fees (390.93) would have been the other defensible reading.
 | **Reason codes on reversals** | The brief gives E9 no reason, so the codes would add code with nothing in the brief to drive them | A single refund rule (next row); reason codes are described as the production addition in AMBIGUITIES.md (A4) |
 | **Keeping the fees after the reversal** (built first, and criterion 6 refused) | A customer shouldn't pay for a debit the bank undid, and a UAE bank must refund charges caused by its own error. The fees were charged correctly; leaving them in place was the part I changed my mind on | Fees are refunded by new, dated entries when a reversal clears their day: three fees plus three refunds, net zero. Criterion 6 is now accepted |
 | **A failing test that asserts a refused criterion** (e.g. "each instalment is 3.334") | That tests the brief's mistake, not my design, and only repeats what this file already proves | The failing test exposes a gap in my own design: no approval for back-dated debits |
-| **A flat, single package** | It mixed the general ledger with the brief's data and runner | `ledger.core` (knows nothing about the brief) and `ledger.scenario` |
+| **A flat, single package** | It mixed the general ledger with the brief's data and runner | `ledger.core` (the ledger's mechanics, with the brief's constants) and `ledger.scenario` (the brief's data and runner) |
 | **A temporary "break the code and watch the test fail" check** for the append-only rule | Nobody else could re-run it | Permanent tests of the check itself (`AppendOnlyCheckTest`) |
-| **An other-account test using the BHD account** | Planting a bug that matched entries by currency instead of by account showed the test passed by coincidence | A second AED account, and `anotherAccountInTheSameCurrencyIsNotCounted` |
+| **An other-account test using the BHD account** | Planting a bug that matched entries by currency instead of by account showed the test passed by coincidence | A second AED account, and `br8_anotherAccountInTheSameCurrencyIsNotCounted` |
 | **A mutation-testing plugin (PIT)** | It adds a dependency, and the project keeps JUnit as its only one | Failure tests named after the mistake each one rules out |
 | **A separate testing document** | More process than a small assessment needs | The test names, and the test layers described in the README |
 | **An unused helper** (`Currency.minorUnitsPerUnit`) | Never called | Removed |

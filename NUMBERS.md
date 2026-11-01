@@ -98,7 +98,7 @@ fees net to zero.
 | Constant | Value | Why this value | Why not half |
 |---|---|---|---|
 | Daily rate | **0.04%** = `DAILY_INTEREST_NUMERATOR / DAILY_INTEREST_DENOMINATOR` = **4 / 10,000** | Given by the brief. Kept as a whole-number fraction so interest is computed in fils, with no floating point | 0.02% is a different product and would halve every accrual |
-| Rounding | **half-up, per day, to the fils** | Each day's accrual must be a real amount in that currency. Half-up is ordinary commercial rounding. In fils: `(balance × 4 + 5,000) / 10,000` | Half-even would only differ on an exact tie, and no balance in the brief lands on one (proved by `InterestTest.br29_anExactHalfFilsRoundsUp`, AED 12.50 → 0.01). Truncating would bias every accrual down |
+| Rounding | **half-up, per day, to the fils** | Each day's accrual must be a real amount in that currency. Half-up is ordinary commercial rounding. In fils: `(balance × 4 + 5,000) / 10,000` | Half-even would only differ on an exact tie, and no balance in the brief lands on one (the six balances are listed below the table). How a tie rounds is pinned by `InterestTest.br29_anExactHalfFilsRoundsUp` (AED 12.50 → 0.01). Truncating would bias every accrual down |
 | Capitalized amount | **the exact sum of the six rounded days** | The brief requires the rounded days to sum exactly to the credit, so the credit *is* their sum: nothing discarded | Rounding the unrounded total instead could differ by a fils and break the rule (criterion 8) |
 | Balance used | **corrected closing balance, fees included, interest credit excluded** | Interest is only paid on Day 6, when the true balances are known; the credit earning interest would be interest on interest | — |
 

@@ -31,17 +31,22 @@ public final class Ledger {
                 .<Outcome>map(Outcome.Rejected::new)
                 .orElseGet(() -> execute(event));
         log.add(new LoggedEvent(event, outcome));
-        // A late or back-dated entry can turn days that already closed negative (E7).
+        // A late or back-dated entry can turn days that already closed negative.
         chargeOverdraftFees(lastClosedDay, lastClosedDay + 1);
         return outcome;
     }
 
     private Optional<Outcome.Reason> rejectionFor(Event event) {
+        // A retry of a request already seen, whatever its outcome, is never processed again.
+        if (log.stream().anyMatch(logged -> logged.event().id().equals(event.id()))) {
+            return Optional.of(Outcome.Reason.DUPLICATE_EVENT_ID);
+        }
         Account account = accounts.get(event.account());
         if (account == null) {
             return Optional.of(Outcome.Reason.UNKNOWN_ACCOUNT);
         }
-        if (!inWindow(event.bookingDay()) || !inWindow(event.valueDate())) {
+        // Once Day 6 has closed, interest is credited and nothing may change the window.
+        if (!inWindow(event.bookingDay()) || !inWindow(event.valueDate()) || lastClosedDay == LAST_DAY) {
             return Optional.of(Outcome.Reason.OUTSIDE_WINDOW);
         }
         Optional<Money> amount = amountOf(event);
@@ -98,14 +103,12 @@ public final class Ledger {
         return balance;
     }
 
-    /** Every posted entry, whatever its value date, minus the holds of active authorizations. */
-    public Money availableBalance(String account) {
-        Money balance = Money.zero(account(account).currency());
-        for (Entry entry : entries) {
-            if (entry.account().equals(account)) {
-                balance = balance.plus(entry.amount());
-            }
-        }
+    /**
+     * The ledger balance on {@code day} minus the holds of active authorizations. A back-dated entry
+     * already posted counts; money value-dated after {@code day} doesn't, because it isn't there yet.
+     */
+    public Money availableBalance(String account, int day) {
+        Money balance = closingBalance(account, day);
         for (Authorization authorization : authorizations()) {
             if (authorization.account().equals(account) && authorization.status() == Authorization.Status.ACTIVE) {
                 balance = balance.plus(authorization.requested().negate());
@@ -191,7 +194,8 @@ public final class Ledger {
 
     private static boolean isDuplicate(LoggedEvent logged) {
         return logged.outcome() instanceof Outcome.Rejected rejected
-                && rejected.reason() == Outcome.Reason.DUPLICATE_AUTHORIZATION;
+                && (rejected.reason() == Outcome.Reason.DUPLICATE_AUTHORIZATION
+                        || rejected.reason() == Outcome.Reason.DUPLICATE_EVENT_ID);
     }
 
     private Optional<Authorization> authorizationFor(String authId) {
@@ -202,7 +206,8 @@ public final class Ledger {
         if (authorizationFor(authorize.authId()).isPresent()) {
             return new Outcome.Rejected(Outcome.Reason.DUPLICATE_AUTHORIZATION);
         }
-        Money availableAfterHold = availableBalance(authorize.account()).plus(authorize.amount().negate());
+        Money availableAfterHold = availableBalance(authorize.account(), authorize.bookingDay())
+                .plus(authorize.amount().negate());
         if (availableAfterHold.isNegative()) {
             return new Outcome.Rejected(Outcome.Reason.INSUFFICIENT_AVAILABLE);
         }

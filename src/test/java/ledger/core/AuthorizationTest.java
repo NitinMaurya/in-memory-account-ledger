@@ -32,19 +32,28 @@ class AuthorizationTest {
     void br9_availableIsTheLedgerBalanceMinusActiveHolds() {
         ledger.apply(authorize("A1", "Auth-A", "200.00"));
 
-        assertEquals(aed("50.00"), ledger.availableBalance("ACC-001"));
+        assertEquals(aed("50.00"), ledger.availableBalance("ACC-001", 2));
+    }
+
+    @Test
+    void br9_br15_moneyValueDatedLaterIsNotAvailableYet() {
+        ledger.apply(new Event.Credit("C2", "ACC-001", aed("1000.00"), 1, 6));
+
+        assertEquals(aed("250.00"), ledger.availableBalance("ACC-001", 2));
+        assertEquals(DECLINED, ledger.apply(authorize("A1", "Auth-A", "300.00")));
+        assertEquals(aed("1250.00"), ledger.availableBalance("ACC-001", 6));
     }
 
     @Test
     void br15_approvedWhenAvailableStaysExactlyAtZero() {
         assertEquals(APPROVED, ledger.apply(authorize("A1", "Auth-A", "250.00")));
-        assertEquals(aed("0.00"), ledger.availableBalance("ACC-001"));
+        assertEquals(aed("0.00"), ledger.availableBalance("ACC-001", 2));
     }
 
     @Test
     void br15_br16_declinedWhenAvailableWouldGoBelowZero_andNoHoldIsPlaced() {
         assertEquals(DECLINED, ledger.apply(authorize("A1", "Auth-A", "250.01")));
-        assertEquals(aed("250.00"), ledger.availableBalance("ACC-001"));
+        assertEquals(aed("250.00"), ledger.availableBalance("ACC-001", 2));
     }
 
     @Test
@@ -53,7 +62,7 @@ class AuthorizationTest {
         assertEquals(APPROVED, ledger.apply(authorize("A2", "Auth-B", "100.00")));
 
         assertEquals(DECLINED, ledger.apply(authorize("A3", "Auth-C", "60.00")));
-        assertEquals(aed("50.00"), ledger.availableBalance("ACC-001"));
+        assertEquals(aed("50.00"), ledger.availableBalance("ACC-001", 2));
     }
 
     @Test

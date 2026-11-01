@@ -13,9 +13,10 @@ When the brief was unclear, I chose using this order:
 4. **What a real bank would do.**
 5. **The simplest option to explain.**
 
-**Only two decisions change a final number**: A4 and A5. A1 changes how many fees are charged, but
-not where the account ends up. Everything else has one clearly better answer, or doesn't affect the
-brief's figures.
+**Only two decisions change a final ledger balance**: A4 and A5. A1 changes how many fees are
+charged, but not where the account ends up. A15 decides Auth-B: approving it would leave a 90.00 hold
+that never expires, so it changes the final *available* balance, not the ledger. Everything else has
+one clearly better answer, or doesn't affect the brief's figures.
 
 | Decision | My choice | Effect | The alternative would give |
 |---|---|---|---|
@@ -52,15 +53,22 @@ close negative.
 
 **A16. E10 is booked Day 5 but listed after E9 (Day 6).**
 - **Choice:** replay strictly in the listed order. E10 is applied after Day 6 has started, as a late,
-  back-dated arrival.
+  back-dated arrival, and its entries keep the booking day it states (Day 5).
 - **Why:** the brief says "replayed in this order". Sorting by booking day would quietly change the
   stream I was given. In the day-end log ACC-002 is still 0.000 on Day 5, because E10 wasn't there
-  that night; in the final view it counts for Day 5.
+  that night; in the final view it counts for Day 5. Entries the ledger creates itself (fees, refunds,
+  interest) are booked on the day it actually creates them.
 
 **A25. An event booked or dated outside Days 1–6.**
 - **Choice:** refuse it (`OUTSIDE_WINDOW`), record it, move no money.
 - **Why:** fees and interest only exist inside the window. The brief's events never leave it, so no
   number changes.
+
+**A39. A request that arrives after Day 6 has closed.**
+- **Choice:** refuse it (`OUTSIDE_WINDOW`), record it, move no money.
+- **Why:** interest is credited when Day 6 closes. Accepting a later request would change the daily
+  amounts without changing the credit, and the credit must equal their sum.
+- **Test:** `WindowTest.br4_br31_aRequestAfterDay6HasClosedIsRefused…`
 
 **A32. Can days close out of order, or twice?**
 - **Choice:** no. Days close in order, once each; anything else is a programming error.
@@ -89,6 +97,23 @@ would mean inventing a start date, weekends and holidays the brief never gives.
 - **What I'd add in production:** a reason code on every reversal. A refund fits a bank error, fraud
   or a mistaken posting; a genuine transaction cancelled at the customer's request might keep its
   fees. The brief gives E9 no reason, so the ledger refunds on every reversal that clears a day.
+
+**A36. Does a fee count towards the next day's fee check?**
+- **Choice:** yes. A day closing at −1.00 is charged 25.00, so the next day starts at −26.00, and a
+  10.00 deposit that day still leaves it negative and charged.
+- **Why:** the brief defines the closing balance as all entries with value date on or before the day,
+  and a fee is an entry. Leaving fees out would mean the fee check uses a different balance from the
+  one the customer sees. In the brief it changes nothing: three fees either way.
+- **What a bank might add:** many banks cap fees per month or ignore a balance pushed negative only by
+  their own fee. That is a tariff decision the brief doesn't make.
+- **Note:** the refund check (A4) deliberately leaves fees out, because it asks whether the day would
+  be negative without the reversed mistake.
+
+**A37. Does a back-dated credit that clears a day refund its fee?**
+- **Choice:** no. Only a reversal triggers a refund.
+- **Why:** a reversal says the original entry was wrong, so the fee it caused was never deserved. A late
+  credit only says money arrived; the day really was overdrawn when it closed. If the credit was late
+  because of the bank, that is a reason code and a refund decision, not something the ledger can infer.
 
 **A18. A fee on the BHD account?**
 - **Choice:** none. The fee exists only in AED.
@@ -134,10 +159,16 @@ would mean inventing a start date, weekends and holidays the brief never gives.
 
 ## Card authorizations and settlements
 
-**A15. Does available balance include back-dated entries already posted?**
-- **Choice:** yes: every posted entry, whatever its value date, minus active holds.
-- **Why:** E7 is on the books when Auth-B asks on Day 5. Ignoring it "because it is dated Day 2"
-  would approve spending on a negative account. This is why Auth-B is declined.
+**A15. Which ledger balance does available use?**
+- **Choice:** the ledger balance on the day of the request (every posted entry value-dated on or
+  before that day), minus active holds. A back-dated entry already posted counts; an entry value-dated
+  later doesn't.
+- **Why:** the brief defines available as "ledger balance minus active holds", and its ledger balance
+  is by value date. E7 is on the books and dated Day 2 when Auth-B asks on Day 5, so it counts, and
+  Auth-B is declined (available −205.00). Money dated Day 6 isn't in the account on Day 2, so it can't
+  be spent then.
+- **Test:** `AuthorizationTest.br15_aBackDatedDebitAlreadyPostedCountsAgainstAvailable`,
+  `AuthorizationTest.br9_br15_moneyValueDatedLaterIsNotAvailableYet`
 
 **A12. A settlement for less than the hold (Auth-A: 185.00 of 200.00).**
 - **Choice:** accept it, take 185.00 and release the whole 200.00 hold.
@@ -149,8 +180,14 @@ would mean inventing a start date, weekends and holidays the brief never gives.
 - **Why:** money must not leave beyond what was authorized.
 
 **A14. A settlement for an authorization that doesn't exist (Auth-Z).**
-- **Choice:** refuse it (`UNKNOWN_AUTHORIZATION`), record it, move no money.
-- **Why:** criterion 4 says exactly this.
+- **Choice:** refuse it (`UNKNOWN_AUTHORIZATION`), record it, move no money from the account.
+- **Why:** with no authorization there was no hold and no evidence the customer agreed to the payment,
+  so taking 180.00 from the account would be taking money nobody approved. I checked criterion 4
+  against this reasoning and accept it.
+- **In a real bank:** refusing it doesn't make the money disappear. The card scheme still expects the
+  bank to pay a valid clearing record, so the bank pays from a suspense account and investigates: post
+  it to the customer if it turns out to be a legitimate offline or forced transaction, otherwise raise
+  a chargeback.
 
 **A26. Settling an authorization that was declined.** Refused as unknown: a declined authorization
 reserved nothing, so there is no hold to settle against.
@@ -202,6 +239,14 @@ The output has to show errors, and nothing is ever deleted.
 **A22. Opening balance.** A property of the account (zero), not an entry. There is no opening event
 in the stream.
 
+**A38. The same request ID arriving twice.**
+- **Choice:** the second one is refused (`DUPLICATE_EVENT_ID`) and recorded, whatever happened to the
+  first, so a retry never moves money twice. A refused request's ID is used up too.
+- **Why:** networks resend messages. Without this, the same credit sent twice was applied twice.
+- **In a real bank:** a resend of an identical request would get the original answer back rather than
+  a refusal, so the sender sees a consistent result.
+- **Test:** `AccountsTest.br34_…`, `BusinessRuleInvariantsTest.br34_noTwoAcceptedRequestsShareAnId`
+
 **A24. What counts as an "error" in the output?** A refused request with its reason. In the brief:
 E6 (unknown authorization) and E8 (insufficient available).
 
@@ -224,3 +269,7 @@ These are not resolved in the code, and are listed so nobody assumes they are:
 - **A reversal dated earlier than its original** would be accepted, and could create an overdraft
   that never existed. In production it should be required to carry the original's value date.
 - **Holds never expire**, and an authorization cannot be cancelled before settlement.
+- **Plain debits have no limit.** A debit is accepted however far it takes the account below zero,
+  and it ignores active holds. The brief sets no limit, and its back-dated debit must be accepted.
+- **A request keeps the booking day it states,** even when that day has already closed (A16). The
+  ledger doesn't check it against the day it actually arrives.
