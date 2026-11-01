@@ -243,7 +243,39 @@ public final class Ledger {
         if (isReversed(entry.eventId())) {
             return new Outcome.Rejected(Outcome.Reason.ALREADY_REVERSED);
         }
-        return post(reverse, Entry.Type.REVERSAL, entry.amount().negate());
+        Outcome outcome = post(reverse, Entry.Type.REVERSAL, entry.amount().negate());
+        refundFeesNoLongerJustified(reverse.account(), reverse.valueDate(), reverse.bookingDay());
+        return outcome;
+    }
+
+    /**
+     * After a reversal, refunds each fee from its value date onwards whose day is no longer negative
+     * without fees. The refund is a new entry dated the fee's own day, so lost interest comes back too.
+     */
+    private void refundFeesNoLongerJustified(String account, int fromDay, int bookedOn) {
+        for (int day = fromDay; day <= lastClosedDay; day++) {
+            if (hasFee(account, day) && !isRefunded(account, day) && balanceWithoutFees(account, day) >= 0) {
+                entries.add(new Entry(nextEntryId(), "REFUND-" + account + "-D" + day, account,
+                        Entry.Type.FEE_REFUND, OVERDRAFT_FEE, bookedOn, day));
+            }
+        }
+    }
+
+    private boolean isRefunded(String account, int day) {
+        return entries.stream().anyMatch(e -> e.type() == Entry.Type.FEE_REFUND
+                && e.account().equals(account)
+                && e.valueDate() == day);
+    }
+
+    private long balanceWithoutFees(String account, int day) {
+        long balance = 0;
+        for (Entry entry : entries) {
+            boolean isFee = entry.type() == Entry.Type.OVERDRAFT_FEE || entry.type() == Entry.Type.FEE_REFUND;
+            if (entry.account().equals(account) && entry.valueDate() <= day && !isFee) {
+                balance = Math.addExact(balance, entry.amount().minorUnits());
+            }
+        }
+        return balance;
     }
 
     private boolean isReversed(String eventId) {

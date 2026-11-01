@@ -71,7 +71,7 @@ class OverdraftFeeTest {
     }
 
     @Test
-    void feesStayWhenTheDebitThatCausedThemIsReversed() {
+    void p1_aReversalRefundsEachFeeItsOriginalCaused_datedTheSameDayAsTheFee() {
         bookUpToTheEndOfDay4();
         ledger.apply(debit("E7", "620.00", 5, 2));
         ledger.closeDay(5);
@@ -79,7 +79,54 @@ class OverdraftFeeTest {
         ledger.apply(new Event.Reverse("E9", "ACC-001", "E7", 6, 2));
 
         assertEquals(List.of(2, 4, 5), feeValueDates());
-        assertEquals(aed("225.00"), ledger.closingBalance("ACC-001", 2));
+        List<Entry> refunds = refunds();
+        assertEquals(List.of(2, 4, 5), refunds.stream().map(Entry::valueDate).toList());
+        assertTrue(refunds.stream().allMatch(r -> r.amount().equals(aed("25.00")) && r.bookingDay() == 6));
+        assertEquals(aed("250.00"), ledger.closingBalance("ACC-001", 2));
+        assertEquals(aed("465.00"), ledger.closingBalance("ACC-001", 5));
+    }
+
+    @Test
+    void p1_aFeeStaysWhenTheReversalDoesNotMakeItsDayPositiveAgain() {
+        ledger.apply(debit("D1", "50.00", 1, 1));
+        ledger.apply(debit("D2", "30.00", 1, 1));
+        ledger.closeDay(1);
+
+        ledger.apply(new Event.Reverse("R1", "ACC-001", "D2", 2, 1));
+
+        assertTrue(refunds().isEmpty());
+        assertEquals(aed("-75.00"), ledger.closingBalance("ACC-001", 1));
+    }
+
+    @Test
+    void p1_onlyDaysFromTheReversalsValueDateAreRefunded() {
+        ledger.apply(debit("D1", "10.00", 1, 1));
+        ledger.closeDay(1);
+        ledger.apply(credit("C2", "20.00", 2, 2));
+        ledger.closeDay(2);
+        ledger.apply(debit("D3", "5.00", 3, 3));
+        ledger.closeDay(3);
+
+        ledger.apply(new Event.Reverse("R1", "ACC-001", "D3", 4, 3));
+
+        // Day 2 is +10.00 without fees but was charged because of Day 1's fee. The reversal is dated
+        // Day 3, so it didn't change Day 2, and Day 2's fee stays.
+        assertEquals(List.of(1, 2, 3), feeValueDates());
+        assertEquals(List.of(3), refunds().stream().map(Entry::valueDate).toList());
+    }
+
+    @Test
+    void p1_br24_aRefundedDayIsNeverChargedAgain() {
+        bookUpToTheEndOfDay4();
+        ledger.apply(debit("E7", "620.00", 5, 2));
+        ledger.closeDay(5);
+        ledger.apply(new Event.Reverse("E9", "ACC-001", "E7", 6, 2));
+
+        ledger.apply(debit("D9", "1000.00", 6, 2));
+
+        for (int day : List.of(2, 4, 5)) {
+            assertEquals(1, feeValueDates().stream().filter(d -> d == day).count(), "Day " + day);
+        }
     }
 
     @Test
@@ -114,6 +161,10 @@ class OverdraftFeeTest {
 
     private List<Entry> fees() {
         return ledger.entries().stream().filter(e -> e.type() == Entry.Type.OVERDRAFT_FEE).toList();
+    }
+
+    private List<Entry> refunds() {
+        return ledger.entries().stream().filter(e -> e.type() == Entry.Type.FEE_REFUND).toList();
     }
 
     private List<Integer> feeValueDates() {

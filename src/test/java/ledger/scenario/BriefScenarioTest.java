@@ -28,24 +28,24 @@ class BriefScenarioTest {
     }
 
     @Test
-    void replayingTheBriefClosesDays1To5At250_225_625_415_390() {
+    void replayingTheBriefClosesDays1To5At250_250_650_465_465() {
         Ledger ledger = replayTheBrief();
 
-        List<String> expected = List.of("250.00", "225.00", "625.00", "415.00", "390.00");
+        List<String> expected = List.of("250.00", "250.00", "650.00", "465.00", "465.00");
         for (int day = 1; day <= 5; day++) {
             assertEquals(Money.of(expected.get(day - 1), AED), ledger.closingBalance("ACC-001", day), "Day " + day);
         }
     }
 
     @Test
-    void replayingTheBriefEarnsAcc001DailyInterestOf_010_009_025_017_016_016_andEndsAt390_93() {
+    void replayingTheBriefEarnsAcc001DailyInterestOf_010_010_026_019_019_019_andEndsAt466_03() {
         Ledger ledger = replayTheBrief();
 
-        List<Money> expected = List.of("0.10", "0.09", "0.25", "0.17", "0.16", "0.16").stream()
+        List<Money> expected = List.of("0.10", "0.10", "0.26", "0.19", "0.19", "0.19").stream()
                 .map(amount -> Money.of(amount, AED))
                 .toList();
         assertEquals(expected, ledger.dailyInterest("ACC-001"));
-        assertEquals(Money.of("390.93", AED), ledger.closingBalance("ACC-001", 6));
+        assertEquals(Money.of("466.03", AED), ledger.closingBalance("ACC-001", 6));
     }
 
     @Test

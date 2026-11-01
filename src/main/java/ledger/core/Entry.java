@@ -11,6 +11,7 @@ public record Entry(
         REVERSAL,
         INSTALMENT,
         OVERDRAFT_FEE,
+        FEE_REFUND,
         INTEREST
     }
 }

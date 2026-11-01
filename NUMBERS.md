@@ -22,7 +22,7 @@ currency: `Money(long minorUnits, Currency currency)`.
 
 | Constant | Value | Why this value | Why not half |
 |---|---|---|---|
-| AED decimal places | **2** | Given by the brief. The dirham is divided into 100 fils | 1 decimal place could not hold 0.05 or 0.93 |
+| AED decimal places | **2** | Given by the brief. The dirham is divided into 100 fils | 1 decimal place could not hold 0.05 or 0.19 |
 | BHD decimal places | **3** | Given by the brief. The dinar is divided into 1,000 fils | At 1.5 there is no such precision; at 2 places 3.334 could not exist and the E10 split would lose fils |
 | AED minor units per unit | **100** | Follows from 2 decimal places: 1.00 AED = 100 fils | 50 per dirham would make the smallest step 0.02, so 0.01 could not be represented |
 | BHD minor units per unit | **1,000** | Follows from 3 decimal places: 1.000 BHD = 1,000 fils | 500 per dinar would make the smallest step 0.002, so 3.333 could not be represented |
@@ -89,7 +89,9 @@ The overflow guards are in place: `Money.plus` uses `Math.addExact`, `Money.nega
 
 In the brief this gives **three** fees (AED 75.00), dated Days 2, 4 and 5, all charged on Day 5: E7
 (booked Day 5, dated Day 2) turns Days 2 and 4 negative after they had closed, and Day 5 closes
-negative too. Day 3 stays at +5.00 thanks to its 400.00 deposit.
+negative too. Day 3 stays at +5.00 thanks to its 400.00 deposit. When E9 reverses E7 on Day 6, the
+three fees are **refunded** (policy P-1): three refunds of AED 25.00, each dated its fee's day, so the
+fees net to zero.
 
 ## Interest
 
@@ -100,8 +102,9 @@ negative too. Day 3 stays at +5.00 thanks to its 400.00 deposit.
 | Capitalized amount | **the exact sum of the six rounded days** | The brief requires the rounded days to sum exactly to the credit, so the credit *is* their sum: nothing discarded | Rounding the unrounded total instead could differ by a fils and break the rule (criterion 8) |
 | Balance used | **corrected closing balance, fees included, interest credit excluded** | Interest is only paid on Day 6, when the true balances are known; the credit earning interest would be interest on interest | — |
 
-In the brief, ACC-001 earns **0.10 + 0.09 + 0.25 + 0.17 + 0.16 + 0.16 = 0.93**, so it ends at
-**390.93**. Freezing each night's balance instead would give 0.81.
+In the brief, ACC-001 earns **0.10 + 0.10 + 0.26 + 0.19 + 0.19 + 0.19 = 1.03** on the corrected
+balances (250, 250, 650, 465, 465, 465), so it ends at **466.03**. Freezing each night's balance
+instead would give 0.84 (Day 5 closed at −230.00 that night and earned nothing).
 
 ## Instalments (E10)
 

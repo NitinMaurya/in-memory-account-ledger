@@ -13,14 +13,15 @@ When the brief was unclear, I chose using this order:
 4. **What a real bank would do.**
 5. **The simplest option to explain.**
 
-**Only three decisions change a final number**: A1, A4 and A5. Everything else has one clearly
-better answer, or doesn't affect the brief's figures.
+**Only two decisions change a final number**: A4 and A5. A1 changes how many fees are charged, but
+not where the account ends up. Everything else has one clearly better answer, or doesn't affect the
+brief's figures.
 
-| Decision | My choice | ACC-001 final | The alternative would give |
+| Decision | My choice | Effect | The alternative would give |
 |---|---|---|---|
-| A1: fees for days already closed | Re-check them: 3 fees | **390.93** | 441.01 (1 fee) or 466.03 (no fees) |
-| A4: fees after the reversal | They stay | **390.93** | 466.03 (refunded) |
-| A5: interest on which balances | As corrected | **0.93** interest | 0.81 (frozen each night) |
+| A4: fees after the reversal | Refunded | ACC-001 ends at **466.03** | 390.93 (fees kept) |
+| A5: interest on which balances | As corrected | **1.03** interest | 0.84 (frozen each night) |
+| A1: fees for days already closed | Re-check them | **3 fees** charged on Day 5 | 1 fee, or none. Because every fee is refunded after E9, the final balance is 466.03 either way |
 
 ---
 
@@ -32,9 +33,9 @@ close negative.
 - **Choice:** re-check every closed day after each accepted event, so E7 charges Days 2 and 4, and
   Day 5 is charged at its own close: **three fees**.
 - **Why:** the brief defines a day's closing balance by value date, and the fee by the closing
-  balance. Freezing closed days would leave Days 2 and 4 negative with no fee (one fee, 441.01).
-  Checking fees only once at the end would see E9 first and charge nothing (466.03), as if the bank
-  knew on Day 5 about a reversal that happened on Day 6.
+  balance. Freezing closed days would leave Days 2 and 4 negative with no fee (one fee). Checking fees
+  only once at the end would see E9 first and charge nothing, as if the bank knew on Day 5 about a
+  reversal that happened on Day 6.
 - **Test:** `OverdraftFeeTest.br25_aBackDatedDebitCausesAFeeForEveryClosedDay…`
 
 **A2. When is each fee charged?**
@@ -71,37 +72,44 @@ would mean inventing a start date, weekends and holidays the brief never gives.
 ## Overdraft fees
 
 **A4. Are E7's fees refunded when E9 reverses it?**
-- **Choice:** no. The three fees stay, and ACC-001 ends at 390.93.
-- **Why:** the brief has no refund rule, and the ledger is append-only: nothing removes them. That is
-  why I refuse criterion 6 (see REJECTED.md).
-- **What a real UAE bank would do:** if E7 was the bank's own error, the CBUAE Consumer Protection
-  Standards require charges caused by an error to be refunded immediately, and say the bank must not
-  benefit from its error. The right design is a new refund entry for each fee, linked to the
-  reversal and carrying that fee's own value date (Days 2, 4, 5): ACC-001 would end at 466.03. It
-  should be decided by a reason code on the reversal (bank error or fraud → refund; a genuine
-  transaction cancelled at the customer's request → no automatic refund), never by refunding every
-  reversal. The brief gives E9 no reason, so the ledger keeps the fees.
+- **Choice:** yes (policy P-1). When a reversal makes a charged day non-negative again, that day's fee
+  is refunded by a **new** entry of AED 25.00, booked on the reversal's day (Day 6) and dated the
+  fee's own day (Days 2, 4, 5). The books show three fees and three refunds, net zero; nothing is
+  deleted. ACC-001 ends at 466.03, and the balances of Days 2–5 return to their pre-E7 values, which is
+  why I accept criterion 6.
+- **Why:** E9 says E7 should never have happened, and a customer shouldn't pay for a debit that was
+  undone. Dating each refund on its fee's day also gives back the interest the fee cost. This is
+  also what a UAE bank must do when the debit was its own error: the CBUAE Consumer Protection
+  Standards require charges caused by an error to be refunded immediately, and the bank must not
+  benefit from its error.
+- **Only days from the reversal's value date onwards**, and only when that day is non-negative
+  without fees. A day before the reversal wasn't changed by it, so its fee stays.
+- **The alternative:** keep the fees (390.93). The brief defines no refund rule, so this is a
+  judgment call, and the reason I list it here.
+- **What I'd add in production:** a reason code on every reversal. A refund fits a bank error, fraud
+  or a mistaken posting; a genuine transaction cancelled at the customer's request might keep its
+  fees. The brief gives E9 no reason, so the ledger refunds on every reversal that clears a day.
 
 **A18. A fee on the BHD account?**
 - **Choice:** none. The fee exists only in AED.
 - **Why:** charging BHD 25.000 or converting would invent a tariff or an exchange rate. ACC-002
   never goes negative anyway.
 
-**A20. "Once per day": a day that is checked again, or dips negative twice.**
-- **Choice:** at most one fee per account per day, ever.
+**A20. "Once per day": a day that is checked again, dips negative twice, or was refunded.**
+- **Choice:** at most one fee per account per day, ever, even after a refund.
 - **Why:** the rule says once per day per account.
 
 ## Interest
 
 **A5. Interest on each day's balance as it was that night, or as later corrected?**
-- **Choice:** as corrected: interest is computed from the ledger as it stands. 0.93 for ACC-001.
+- **Choice:** as corrected: interest is computed from the ledger as it stands. 1.03 for ACC-001.
 - **Why:** interest is only paid on Day 6, when the true balances are known, and the brief says
-  0.04% "on the closing ledger balance". Freezing each night's figure would give 0.81 and pay
-  interest on balances later shown to be wrong.
+  0.04% "on the closing ledger balance". Freezing each night's figure would give 0.84 (Day 5 closed at
+  −230.00 that night and would earn nothing), paying interest on balances later shown to be wrong.
 
-**A6. Do fees count in the balance that earns interest?**
-- **Choice:** yes. Day 2 earns on 225.00, not 250.00.
-- **Why:** fees are part of the closing ledger balance.
+**A6. Do fees and refunds count in the balance that earns interest?**
+- **Choice:** yes. A fee lowers that day's interest; its refund, dated the same day, restores it.
+- **Why:** both are part of the closing ledger balance.
 
 **A7. Does the Day 6 interest credit earn interest itself?**
 - **Choice:** no.
@@ -162,7 +170,7 @@ point to exactly one hold.
 
 **A29. Reversing a request that was refused.** Refused as unknown: it never moved money.
 
-**A30. What can be reversed?** Only plain credits and debits. Settlements, fees, interest,
+**A30. What can be reversed?** Only plain credits and debits. Settlements, fees, refunds, interest,
 instalments and other reversals are refused (`NOT_REVERSIBLE`): card captures are undone through
 refunds or chargebacks, fees and interest are the bank's own postings, and reversing a reversal
 would just recreate the original.
@@ -204,7 +212,7 @@ no exchange rate, so AED and BHD are never mixed.
 **A35. Which "per day" does the replay print?** Both: a day-end log (each day as it was when it
 closed) and a final view (each day by value date after every event). Back-dating changes a day's
 numbers after it closes, so one view alone would hide either what the bank knew or how the history
-ended up. Day 2 is 250.00 that night and 225.00 in the end.
+ended up. Day 5 is −230.00 that night and 465.00 in the end.
 
 ## Known limitations
 

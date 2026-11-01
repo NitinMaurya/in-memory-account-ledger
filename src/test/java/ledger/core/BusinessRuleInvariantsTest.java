@@ -218,6 +218,29 @@ class BusinessRuleInvariantsTest {
         });
     }
 
+    @Test
+    void p1_everyRefundMatchesExactlyOneFee_sameAccountAndDay_neverTwice() {
+        Ledger ledger = new Ledger(BriefScenario.accounts());
+
+        Replay.run(ledger, BriefScenario.events(), () -> {
+            List<String> refunded = new ArrayList<>();
+            for (Entry refund : ledger.entries()) {
+                if (refund.type() != Entry.Type.FEE_REFUND) {
+                    continue;
+                }
+                String accountDay = refund.account() + " Day " + refund.valueDate();
+                Entry fee = ledger.entries().stream()
+                        .filter(e -> e.type() == Entry.Type.OVERDRAFT_FEE)
+                        .filter(e -> (e.account() + " Day " + e.valueDate()).equals(accountDay))
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("refund without a fee: " + refund));
+                assertEquals(fee.amount().negate(), refund.amount());
+                assertTrue(!refunded.contains(accountDay), () -> "refunded twice: " + accountDay);
+                refunded.add(accountDay);
+            }
+        });
+    }
+
     private static Event eventWithId(Ledger ledger, String eventId) {
         return ledger.eventLog().stream()
                 .map(LoggedEvent::event)

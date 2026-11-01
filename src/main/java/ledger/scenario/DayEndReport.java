@@ -49,7 +49,8 @@ public final class DayEndReport {
         }
         balances.add(String.join("; ", authorizationStates()));
         balanceRows.add(balances);
-        activityRows.add(List.of(String.valueOf(day), orNone(feesSinceLastClose()), orNone(refusalsSinceLastClose())));
+        activityRows.add(List.of(String.valueOf(day), orNone(sinceLastClose(Entry.Type.OVERDRAFT_FEE)),
+                orNone(sinceLastClose(Entry.Type.FEE_REFUND)), orNone(refusalsSinceLastClose())));
         entriesSeen = ledger.entries().size();
         requestsSeen = ledger.eventLog().size();
     }
@@ -68,11 +69,11 @@ public final class DayEndReport {
         balanceHeaders.add("Authorizations");
         balanceAlign.append('L');
         out.append(table(balanceHeaders, balanceRows, balanceAlign.toString())).append('\n');
-        out.append(table(List.of("Day", "Fees charged (AED 25.00 each)", "Errors"), activityRows, "RLL"))
+        out.append(table(List.of("Day", "Fees charged (AED 25.00 each)", "Fees refunded", "Errors"), activityRows, "RLLL"))
                 .append('\n');
 
         out.append("FINAL VIEW: each day by value date, after every event\n\n");
-        out.append(table(finalHeaders(), finalRows(), "R" + "RRR".repeat(accounts.size()))).append('\n');
+        out.append(table(finalHeaders(), finalRows(), "R" + "RRRR".repeat(accounts.size()))).append('\n');
 
         List<String> credited = new ArrayList<>();
         List<String> finals = new ArrayList<>();
@@ -90,6 +91,7 @@ public final class DayEndReport {
         for (Account account : accounts) {
             headers.add(account.id() + " closing (" + account.currency() + ")");
             headers.add("fee");
+            headers.add("refund");
             headers.add("interest");
         }
         return headers;
@@ -101,7 +103,8 @@ public final class DayEndReport {
             List<String> row = new ArrayList<>(List.of(String.valueOf(day)));
             for (Account account : accounts) {
                 row.add(amount(ledger.closingBalance(account.id(), day)));
-                row.add(feeFor(account.id(), day));
+                row.add(amountOf(Entry.Type.OVERDRAFT_FEE, account.id(), day));
+                row.add(amountOf(Entry.Type.FEE_REFUND, account.id(), day));
                 row.add(amount(ledger.dailyInterest(account.id()).get(day - 1)));
             }
             rows.add(row);
@@ -122,10 +125,10 @@ public final class DayEndReport {
         return states.isEmpty() ? List.of("none") : states;
     }
 
-    private List<String> feesSinceLastClose() {
+    private List<String> sinceLastClose(Entry.Type type) {
         List<String> days = new ArrayList<>();
         for (Entry entry : ledger.entries().subList(entriesSeen, ledger.entries().size())) {
-            if (entry.type() == Entry.Type.OVERDRAFT_FEE) {
+            if (entry.type() == type) {
                 days.add("Day " + entry.valueDate());
             }
         }
@@ -142,10 +145,10 @@ public final class DayEndReport {
         return refusals;
     }
 
-    private String feeFor(String account, int day) {
+    private String amountOf(Entry.Type type, String account, int day) {
         return ledger.entries().stream()
-                .filter(e -> e.type() == Entry.Type.OVERDRAFT_FEE && e.account().equals(account) && e.valueDate() == day)
-                .map(e -> amount(e.amount().negate()))
+                .filter(e -> e.type() == type && e.account().equals(account) && e.valueDate() == day)
+                .map(e -> amount(e.amount().minorUnits() < 0 ? e.amount().negate() : e.amount()))
                 .findFirst()
                 .orElse("-");
     }

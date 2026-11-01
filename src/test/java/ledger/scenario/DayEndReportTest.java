@@ -11,7 +11,7 @@ class DayEndReportTest {
 
     @Test
     void showsBothFinalBalances() {
-        assertTrue(report.contains("Final balances: ACC-001 AED 390.93, ACC-002 BHD 10.008"), report);
+        assertTrue(report.contains("Final balances: ACC-001 AED 466.03, ACC-002 BHD 10.008"), report);
     }
 
     @Test
@@ -26,9 +26,15 @@ class DayEndReportTest {
     }
 
     @Test
+    void showsTheThreeRefundsMadeOnDay6() {
+        assertTrue(rowFor("DAY-END LOG", "6", "for Day 2, Day 4, Day 5").startsWith("  6"), report);
+    }
+
+    @Test
     void showsDay2AsItWasThatNightAndAsItEndedUp() {
         assertTrue(rowFor("DAY-END LOG", "2", "Auth-A ACTIVE").contains("250.00"), report);
-        assertTrue(rowFor("FINAL VIEW", "2", "225.00").contains("25.00"), report);
+        assertTrue(rowFor("DAY-END LOG", "5", "INSUFFICIENT").contains("for Day 2, Day 4, Day 5"), report);
+        assertTrue(rowFor("FINAL VIEW", "2", "250.00").contains("25.00"), report);
     }
 
     /** The first row in a section that starts with the day number and contains the given text. */

@@ -102,6 +102,14 @@ enforces it.
 
 ---
 
+## Policy: my decision where the brief is silent
+
+| ID | Rule | Source | Kind | Enforced by |
+|---|---|---|---|---|
+| P-1 | When a reversal makes a day that was charged an overdraft fee non-negative again (from the reversal's value date onwards), the fee is refunded by a new entry of the same amount, booked on the reversal's day and dated the fee's own day. A refunded day is never charged again | Policy (AMBIGUITIES.md, A4) | Invariant | `OverdraftFeeTest.p1_…`, `BusinessRuleInvariantsTest.p1_…`, `AcceptanceCriteriaTest.criterion6_…` |
+
+---
+
 ## Where the rules are silent
 
 These are not rules. They are gaps where the brief gives no answer, so a decision had to be made.
@@ -109,7 +117,8 @@ Each is recorded, with its alternatives and reasoning, in `AMBIGUITIES.md`. Test
 decisions are labelled as *policy*, kept separate from the business-rule tests above.
 
 1. Does a back-dated transaction trigger fees for days already closed?
-2. Are fees refunded when the transaction that caused them is reversed?
+2. Are fees refunded when the transaction that caused them is reversed? (Decided as policy P-1:
+   yes.)
 3. Is interest paid on each day's balance as it stood that night, or as later corrected?
 4. What happens to a settlement for more than its hold, or a second settlement of the same
    authorization?

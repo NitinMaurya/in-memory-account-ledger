@@ -74,7 +74,7 @@ class AcceptanceCriteriaTest {
     }
 
     @Test
-    void criterion6_refused_afterE9TheFeesStay_soDay2Is225Not250() {
+    void criterion6_accepted_afterE9BalancesReturnToPreE7_andFeesNetToZero_threeFeesPlusThreeRefunds() {
         Ledger ledger = new Ledger(BriefScenario.accounts());
         List<String> before = new ArrayList<>();
         List<String> after = new ArrayList<>();
@@ -82,16 +82,27 @@ class AcceptanceCriteriaTest {
         Replay.run(ledger, BriefScenario.events(), () -> {
             String lastEvent = lastLogged(ledger);
             if (lastEvent.equals("E6") && before.isEmpty()) {
-                before.add(ledger.closingBalance(ACC_001, 2) + " with " + fees(ledger).size() + " fees");
+                before.add(snapshot(ledger));
             }
             if (lastEvent.equals("E9") && after.isEmpty()) {
-                after.add(ledger.closingBalance(ACC_001, 2) + " with " + fees(ledger).size() + " fees");
+                after.add(snapshot(ledger));
             }
         });
 
-        assertEquals(List.of("AED 250.00 with 0 fees"), before);
-        assertEquals(List.of("AED 225.00 with 3 fees"), after);
+        assertEquals(before, after);
+        assertEquals(List.of("days 2-5: AED 250.00, AED 650.00, AED 465.00, AED 465.00; net fees AED 0.00"), after);
+        assertEquals(3, fees(ledger).size());
         assertEquals(Authorization.Status.DECLINED, statusOf(ledger, "Auth-B"));
+    }
+
+    /** Days 2-5 closing balances and the net of fees and refunds. */
+    private static String snapshot(Ledger ledger) {
+        List<String> days = new ArrayList<>();
+        for (int day = 2; day <= 5; day++) {
+            days.add(ledger.closingBalance(ACC_001, day).toString());
+        }
+        Money netFees = sumOf(ledger, e -> e.type() == Entry.Type.OVERDRAFT_FEE || e.type() == Entry.Type.FEE_REFUND);
+        return "days 2-5: " + String.join(", ", days) + "; net fees " + netFees;
     }
 
     @Test
@@ -110,7 +121,7 @@ class AcceptanceCriteriaTest {
     void criterion8_refused_nothingIsDiscarded_theCreditEqualsTheSumOfTheRoundedDays() {
         Ledger ledger = replayTheBrief();
 
-        assertEquals(aed("0.93"), interestCredited(ledger, ACC_001));
+        assertEquals(aed("1.03"), interestCredited(ledger, ACC_001));
         assertEquals(bhd("0.008"), interestCredited(ledger, "ACC-002"));
         for (String account : List.of(ACC_001, "ACC-002")) {
             Money sumOfDays = ledger.dailyInterest(account).stream().reduce(Money::plus).orElseThrow();
