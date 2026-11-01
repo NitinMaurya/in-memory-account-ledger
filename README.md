@@ -7,8 +7,8 @@ six-day event stream, printing the state of each account at the end of every day
 There is no web layer, no database and no UI. The ledger is exercised entirely through its test
 suite and a replay program. The assessment brief is in [`brief.md`](brief.md).
 
-> **Status:** the ledger, its tests, the replay program and the written analysis are complete. The
-> architecture and trade-offs document (Part 2) is still to come. The commit history and
+> **Status:** complete. The ledger, its tests, the replay program, the written analysis and the
+> architecture and trade-offs document ([`ARCHITECTURE.pdf`](ARCHITECTURE.pdf)) are done. The commit history and
 > [`WORKLOG.md`](WORKLOG.md) record the work as it happened.
 
 ## Quick start
@@ -19,7 +19,7 @@ Needs JDK 21+ and Maven 3.9+ (`java -version`, `mvn -v`). From a terminal:
 git clone https://github.com/NitinMaurya/in-memory-account-ledger.git
 cd in-memory-account-ledger
 
-# 1. Run the test suite: expect "Tests run: 104, Failures: 0" and BUILD SUCCESS
+# 1. Run the test suite: expect "Tests run: 111, Failures: 0" and BUILD SUCCESS
 mvn test
 
 # 2. Replay the brief's event stream and print the report
@@ -185,7 +185,8 @@ after it has closed, followed by **the ledger itself**.
 **1. Day-end log: each day as it was when it closed.** What the bank knew that night.
 
 - *closing*: the sum of every entry value-dated on or before that day.
-- *available*: every posted entry minus the holds of active authorizations.
+- *available*: that day's ledger balance minus the holds of active authorizations. A back-dated
+  entry already posted counts; money dated later doesn't.
 - *Authorizations*: every authorization's state that night.
 - *Fees charged*, *Fees refunded* and *Errors*: what was charged, refunded or refused since the
   previous close.
@@ -195,8 +196,8 @@ shows the day's closing balance, the overdraft fee and any refund dated that day
 rounded interest.
 
 **3. Ledger: every entry in the order it was written.** *From* is the event that caused the entry,
-or the fee, refund or interest the ledger generated itself. *Booked* is the day it was written,
-*Value* the day it counts for. E3, E6 and E8 have no entries: E3 only placed a hold, and E6 and E8
+or the fee, refund or interest the ledger generated itself. *Booked* is the booking day the request stated (for
+fees, refunds and interest, the day the ledger created them), *Value* the day it counts for. E3, E6 and E8 have no entries: E3 only placed a hold, and E6 and E8
 were refused.
 
 What to look for:
@@ -219,7 +220,7 @@ expect different numbers.
 ## Running the tests
 
 ```bash
-mvn test                                    # every test except the known gap: 104 tests, all pass
+mvn test                                    # every test except the known gap: 111 tests, all pass
 mvn test -Dtest=OverdraftFeeTest            # one test class
 mvn test -Dtest='OverdraftFeeTest#p1_*'     # matching methods in one class
 ```
@@ -232,7 +233,7 @@ The suite is organised in layers:
 | **Rule tests** (`AccountsTest`, `AuthorizationTest`, `SettlementTest`, `ReversalTest`, `OverdraftFeeTest`, `InterestTest`, `InstalmentTest`, …) | Each rule with hand-worked numbers, including negative cases named after the mistake they rule out (for example `…CountsFromItsValueDateNotItsBookingDay`) |
 | **Scenario and acceptance** (`BriefScenarioTest`, `AcceptanceCriteriaTest`) | The brief's replay end to end, and one test per acceptance criterion: five proven true, three proven wrong |
 
-Test names carry the business-rule ID they enforce (`br8_…`), matching
+Most test names carry the business-rule ID they enforce (`br8_…`), matching
 [`BUSINESS-RULES.md`](BUSINESS-RULES.md).
 
 `mvn test` runs every test **except one**: the suite has a single test that **fails on purpose**.
@@ -253,7 +254,7 @@ explain what it reveals and why the control is not built.
 ```
 .
 ├── pom.xml                         Maven build (Java 21, JUnit 5)
-├── src/main/java/ledger/core/      The ledger: knows nothing about the brief
+├── src/main/java/ledger/core/      The ledger: general mechanics, plus the brief's constants
 ├── src/main/java/ledger/scenario/  The brief's accounts and events, the replay and the report
 ├── src/test/java/ledger/core/      Business-rule invariants and rule tests
 ├── src/test/java/ledger/scenario/  The brief's replay, the acceptance criteria and the report
@@ -263,6 +264,8 @@ explain what it reveals and why the control is not built.
 ├── AMBIGUITIES.md                  Every ambiguity found and how it was resolved
 ├── REJECTED.md                     The acceptance criteria refused, and approaches abandoned
 ├── NUMBERS.md                      Every constant and why it has that value
+├── ARCHITECTURE.pdf                Part 2: architecture and trade-offs (source: docs/architecture.html)
+├── docs/bench/                     Programs behind the PDF's measurements (not part of the build)
 └── WORKLOG.md                      Timestamped log of the work, written as it happened
 ```
 
@@ -277,7 +280,7 @@ explain what it reveals and why the control is not built.
 | [`REJECTED.md`](REJECTED.md) | Incorrect acceptance criteria refused, with reasons, and approaches abandoned | ✅ |
 | [`NUMBERS.md`](NUMBERS.md) | Every constant used, and why that value and not half it | ✅ |
 | [`WORKLOG.md`](WORKLOG.md) | Timestamped record of the work as it happened | ✅ |
-| Architecture & trade-offs (PDF) | Scale, value dating in production, authorization lifecycle, scope cuts | *to come* |
+| Architecture & trade-offs (PDF) | Scale, value dating in production, authorization lifecycle, scope cuts | [`ARCHITECTURE.pdf`](ARCHITECTURE.pdf) (source: [`docs/architecture.html`](docs/architecture.html)) |
 
 ## Use of AI assistance
 
