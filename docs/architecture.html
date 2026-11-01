@@ -4,249 +4,78 @@
 <meta charset="utf-8">
 <title>Architecture and Trade-offs</title>
 <style>
-  @page { size: A4; margin: 15mm 16mm 14mm 16mm; }
-  body { font-family: Charter, "Iowan Old Style", Georgia, serif; font-size: 9.6pt; line-height: 1.38; color: #1a1a1a; margin: 0; }
-  h1 { font-size: 16pt; margin: 0 0 2pt 0; }
-  .byline { color: #555; font-size: 8.8pt; margin-bottom: 8pt; }
-  h2 { font-size: 11.5pt; margin: 11pt 0 3pt 0; border-bottom: 0.6pt solid #999; padding-bottom: 1.5pt; }
-  h3 { font-size: 9.8pt; margin: 7pt 0 2pt 0; }
-  p { margin: 0 0 5pt 0; }
-  ul { margin: 0 0 5pt 0; padding-left: 14pt; }
-  li { margin-bottom: 2pt; }
-  table { border-collapse: collapse; width: 100%; margin: 3pt 0 6pt 0; font-size: 8.3pt; line-height: 1.28; }
-  th, td { border: 0.5pt solid #bbb; padding: 2.2pt 4pt; vertical-align: top; text-align: left; }
+  @page { size: A4; margin: 18mm 18mm 16mm 18mm; }
+  body { font-family: Charter, "Iowan Old Style", Georgia, serif; font-size: 10.6pt; line-height: 1.45; color: #1a1a1a; margin: 0; }
+  h1 { font-size: 17pt; margin: 0 0 2pt 0; }
+  .byline { color: #555; font-size: 9pt; margin-bottom: 10pt; }
+  h2 { font-size: 12.5pt; margin: 14pt 0 5pt 0; border-bottom: 0.6pt solid #999; padding-bottom: 2pt; }
+  p { margin: 0 0 6pt 0; }
+  table { border-collapse: collapse; width: 100%; margin: 3pt 0 7pt 0; font-size: 9.6pt; line-height: 1.35; }
+  th, td { border: 0.5pt solid #bbb; padding: 3.5pt 5pt; vertical-align: top; text-align: left; }
   th { background: #f0f0f0; font-weight: 600; }
-  td.n { text-align: right; white-space: nowrap; }
-  code { font-family: Menlo, Consolas, monospace; font-size: 8.2pt; }
-  .note { font-size: 8.3pt; color: #444; }
+  code { font-family: Menlo, Consolas, monospace; font-size: 9pt; }
   tr { page-break-inside: avoid; }
-  h2, h3 { page-break-after: avoid; }
+  h2 { page-break-after: avoid; }
 </style>
 </head>
 <body>
 
 <h1>Architecture and Trade-offs</h1>
-<div class="byline">In-memory account ledger · Nitin Maurya · 1 November 2026 · describes the code at tag <code>v1.1-implementation</code></div>
+<div class="byline">In-memory account ledger · Nitin Maurya · 1 November 2026 · code at tag <code>v1.2</code> · figures measured with <code>docs/bench/</code></div>
 
-<p>Everything below comes from the ledger as I built it. Where I quote a number, I got it by running
-that code, not by estimating.</p>
+<h2>The decisions everything else follows from</h2>
+<table>
+  <tr><th style="width:32%">Decision</th><th style="width:30%">Buys</th><th>Costs in production</th></tr>
+  <tr><td>Store facts, derive state: two append-only lists; balances and statuses computed, never stored</td><td>Nothing drifts; any past figure can be rebuilt</td><td>Every query is a full scan (section 1)</td></tr>
+  <tr><td>Two dates per entry; a day's balance is everything value-dated on or before it</td><td>A correction is one new line</td><td>Closed days change after the fact (section 2)</td></tr>
+  <tr><td>Money as whole fils in a <code>long</code>, tied to its currency</td><td>Exact sums; no mixing AED and BHD</td><td>FX has to be an explicit step</td></tr>
+  <tr><td>Refusals are recorded results with a reason</td><td>"Why was this declined?" always has an answer</td><td>The log grows with refusals too</td></tr>
+</table>
 
 <h2>1. Append-only at scale</h2>
-
-<p>The ledger keeps two lists and only ever appends to them: the entries (money that moved) and the
-request log (every request with its outcome, refusals included). Nothing else is stored. Closing
-balances, available balance, authorization status, fees and interest are all recomputed from those
-lists, by a full scan, every time someone asks. That is why I trust it: there is no second copy of
-the truth that can drift. It is also the thing that breaks.</p>
-
-<h3>What breaks first: CPU, long before memory</h3>
-<p>After every request, the ledger re-checks every closed day of every AED account for a missing
-overdraft fee, and each of those checks re-scans every entry. One request therefore costs roughly
-<em>accounts × closed days × entries</em>. Days stay at six, but accounts and entries both grow with
-volume, and it happens once per request, so the whole run grows like <em>requests × accounts ×
-entries</em>. I timed the replay on a synthetic stream with the brief's proportions, scaled by k
-(2k accounts, about 12k requests over the six days):</p>
-
-<table>
-  <tr><th>Volume</th><th>Accounts</th><th>Requests</th><th>Entries</th><th>Replay time</th></tr>
-  <tr><td>1×</td><td class="n">2</td><td class="n">18</td><td class="n">25</td><td class="n">22 ms (JVM warm-up)</td></tr>
-  <tr><td>10×</td><td class="n">20</td><td class="n">126</td><td class="n">210</td><td class="n">19 ms</td></tr>
-  <tr><td>100×</td><td class="n">200</td><td class="n">1,206</td><td class="n">2,040</td><td class="n">3.4 s</td></tr>
-  <tr><td>300×</td><td class="n">600</td><td class="n">3,606</td><td class="n">6,206</td><td class="n">96 s</td></tr>
-</table>
-<p class="note">Apple M2 Pro, JDK 25, one run each. The program is <code>docs/bench/Scale.java</code>; its header says how
-to run it.</p>
-
-<p>Going from 100× to 300× made it 28 times slower, which is the cubic growth the loop predicts
-(3³ = 27). At 300× the data is a few thousand small records, so memory is irrelevant; at 1,000× the
-same six days would take about an hour. The second hot spot is authorizations: their status is
-derived from the log, and each derivation searches the log again for a matching settlement, so a
-single card request is quadratic in the size of the log. In production that would show up as card
-authorization latency, at the p99, long before anyone noticed the batch replay.</p>
-
-<h3>Where state grows without bound</h3>
-<ul>
-  <li><strong>Entries and the request log</strong> grow forever, refusals included. That is right for
-  audit, but all of it sits in memory and all of it is scanned.</li>
-  <li><strong>Holds never expire.</strong> An authorization that is never settled stays active, so it is
-  part of every available-balance calculation for the life of the account.</li>
-  <li><strong>The fee re-check always starts from Day 1.</strong> With a fixed six-day window that is
-  harmless. In a bank the days never stop, so every request would re-check the account's entire
-  history.</li>
-  <li>The lookups for "is there already a fee / refund / reversal for this?" are full scans as well.</li>
-</ul>
-
-<h3>The cheapest structural change</h3>
-<p>Keep the log as the only source of truth, and maintain a derived index beside it, updated on every
-append: per account, a running total for each value date, and a marker for days that have a fee or a
-refund. A day's closing balance becomes a sum over days instead of a scan over entries. More
-importantly, the re-check after a request only needs the account it touched, from that request's
-value date onwards, because an entry dated Day 2 cannot change Day 1, or anybody else's account. That
-takes one request from <em>accounts × days × entries</em> down to a short loop over days, however many
-entries or accounts exist. The index is disposable:
-it can always be rebuilt by replaying the log, so the append-only property and "store facts, derive
-state" both survive.</p>
-<p>That fixes time per request but not growth over time. The next step is a period close: once a
-period is signed off, snapshot every account's closing balance and stop accepting value dates inside
-it. Corrections go into the open period as adjustments that point at the original. That bounds the
-re-check, bounds how much of the log has to stay hot, and lets closed periods move to cold storage.
-If this were persisted, an insert-only ledger also suits PostgreSQL well: with no updates there are
-almost no dead row versions, so vacuum has little to do beyond freezing old rows, and partitioning by
-period handles the growth that remains.</p>
+<p><strong>CPU breaks first, not memory.</strong> After every request the ledger re-checks every closed day of
+every account for a missing fee, scanning every entry each time, so a run grows like <em>requests ×
+accounts × entries</em>: 3.4 s at 100× volume, 96 s at 300×, on only about 6,000 records.
+Authorization status is also rebuilt from the log per request, so card latency degrades early.</p>
+<p><strong>Unbounded state:</strong> the log and entries grow forever, holds never expire, and the fee
+re-check always starts from Day 1.</p>
+<p><strong>Cheapest fix:</strong> a running total per account per value date, updated on append and
+rebuildable from the log. The re-check then touches one account from one date onwards. A period close
+later bounds growth over time.</p>
 
 <h2>2. Value-dated entries in production</h2>
-
-<p>In my ledger a value-dated entry is one new line, and the past simply recomputes. The replay shows
-what that means in practice: Day 5 closed at −230.00 with three overdraft fees on the books, and after
-the reversal the same day reads 465.00. Both figures were true, at different moments. My report prints
-two views for exactly this reason, one as each day closed and one as each day ends up. A bank has to
-operate with both.</p>
-
-<h3>Operational surface</h3>
-<ul>
-  <li><strong>Figures change after the customer has seen them.</strong> Balances in the app, end-of-day
-  positions and statements were all produced from the old numbers. The bank needs corrected statements
-  and a record of what was shown to whom and when, which means keeping booking time and value time
-  side by side (bitemporal), not just the latest answer.</li>
-  <li><strong>Decisions taken on the old numbers cannot be recomputed.</strong> Auth-B was declined
-  because of the mistaken debit. The fees can be refunded; the decline at the till cannot be undone.
-  Value dating repairs balances, not consequences, and those cases need complaint handling.</li>
-  <li><strong>Derived amounts cascade.</strong> One back-dated debit produced three fees on days the
-  bank had already closed, and a fee can itself push the next day below zero. Interest also depends on
-  which balance you use: 1.03 on the corrected balances, 0.84 if each night's figure had been frozen,
-  because Day 5 closed at −230.00 and would have earned nothing. Every fee and interest calculation has
-  to be re-runnable for past days and must post its difference as a new, visible entry.</li>
-  <li><strong>Reconciliation and period close.</strong> The general ledger is reconciled per date and
-  month-end is closed. A value date inside a closed month changes figures that finance already signed
-  off, so back-dating has to be limited to the open period, with older corrections posted as current
-  adjustments.</li>
-  <li><strong>Calendar and cut-offs.</strong> Real value dates follow business days and payment-system
-  cut-offs. Mine are plain numbers, so none of that is enforced (see section 4).</li>
-</ul>
-
-<h3>Regulatory surface in the UAE</h3>
-<ul>
-  <li><strong>Consumer protection.</strong> The CBUAE Consumer Protection Standards expect charges caused
-  by the bank's own error to be refunded immediately, and the bank must not benefit from the error. That is
-  why my ledger refunds each fee dated on the fee's own day, so the interest the fee cost also comes
-  back. In production the refund has to depend on why the entry was reversed: a bank error is refunded,
-  a cancellation the customer asked for may not be.</li>
-  <li><strong>Interest on credit.</strong> My ledger charges no interest on an overdrawn balance, but a
-  real one would: an overdraft is retail credit, and CBUAE rules (Regulation 29/2011 and its
-  clarifications) require interest on the reducing balance. A back-dated debit then changes a regulated
-  calculation, not just a number on a screen, and the correction must be traceable.</li>
-  <li><strong>Audit trail.</strong> Every back-dated entry has to show who entered it, who approved it,
-  when, and why. These are exactly the entries internal audit and examiners sample, and back-dating is
-  a well-known way to hide a movement across a reporting date, so it is also a signal for AML
-  monitoring.</li>
-  <li><strong>Reports already filed.</strong> Regulatory returns are produced for a date. A back-dated
-  entry can make a submitted return wrong, so the bank needs a materiality rule for restating it.</li>
-</ul>
-
-<h3>The one control I would add before going live: maker-checker on back-dated entries</h3>
-<p>Any entry whose value date is earlier than its booking day is refused unless it carries a reason
-code from a fixed list, an approver who is not the person who entered it, and a value date inside the
-open accounting period. My ledger has none of this: one caller can rewrite days that are already
-closed. That is the test I left failing on purpose (<code>KnownGapBackDatedDebitApprovalTest</code>),
-and its comments explain why I did not build it: the brief's requests carry no approver, so requiring
-one would reject the back-dated debit and break the replay. The reason code would also give the
-fee-refund decision what it is missing today, the difference between a bank error and a customer's
-request.</p>
+<p>Day 5 closed at −230.00 with three fees and ended at 465.00. Statements already shown are wrong, the
+declined Auth-B can't be undone, and past fees and interest must be re-run as new entries. CBUAE
+consumer protection requires refunding charges caused by the bank's own error immediately, which is
+why my refunds carry each fee's own date. Every back-dated entry also needs an audit trail.</p>
+<p><strong>Control before go-live: maker-checker.</strong> An entry dated before its booking day needs a
+reason code and a second approver. My ledger lacks this; it is the test I left failing on purpose.</p>
 
 <h2>3. Authorization lifecycle</h2>
-
-<p>In my model an authorization is never stored. Its status (active, settled or declined) is derived
-from the request log each time. These are all the ways one can end, or fail to end, other than a
-matching settlement:</p>
-
 <table>
-  <tr><th style="width:17%">How it ends in my model</th><th style="width:25%">What my ledger does today</th><th style="width:22%">Real-world scenario</th><th style="width:36%">Behaviour I would mandate</th></tr>
-  <tr><td><strong>Declined: not enough available</strong></td>
-      <td>Refused with <code>INSUFFICIENT_AVAILABLE</code>, shown as DECLINED, no hold placed. Auth-B ends this way.</td>
-      <td>Card declined at the till or online.</td>
-      <td>Keep this. Add a specific decline code to the card network and a customer notification. Count an arranged overdraft limit as available, which my model has no notion of.</td></tr>
-  <tr><td><strong>Refused for a structural reason</strong></td>
-      <td>Unknown account, other currency or a date outside the window are refused and also show as DECLINED, indistinguishable from a funds decline.</td>
-      <td>Closed or blocked card; a purchase in a foreign currency; a malformed message.</td>
-      <td>Separate these from "insufficient funds": the merchant and the customer act differently on each. A foreign-currency purchase should be converted and authorized, not refused.</td></tr>
-  <tr><td><strong>Duplicate ID</strong></td>
-      <td>Resending the same request is refused (<code>DUPLICATE_EVENT_ID</code>) and places no second hold. A new request reusing the authorization ID is refused (<code>DUPLICATE_AUTHORIZATION</code>); a declined ID is burned the same way.</td>
-      <td>The acquirer times out and resends; a network delivers the message twice.</td>
-      <td>For a resend, return the original decision rather than a refusal, so the terminal gets a consistent answer. Same ID with different details: refuse and alert.</td></tr>
-  <tr><td><strong>Still open when the window ends</strong></td>
-      <td>Stays ACTIVE forever and its hold keeps reducing available: an unsettled 300.00 hold leaves available at 702.40 against a ledger balance of 1,002.40 after Day 6.</td>
-      <td>The merchant never captures: a cancelled order, an unused hotel or car-rental deposit, a fuel pre-authorization.</td>
-      <td>Expiry by merchant category in line with scheme rules, recorded as a new EXPIRED event rather than an edit, releasing the hold. A settlement arriving after expiry is a late presentment: the guarantee has lapsed, so post it if funds allow, otherwise route it to exceptions, where the bank keeps its chargeback right.</td></tr>
-  <tr><td><strong>Cancelled before settlement</strong></td>
-      <td>Cannot be expressed. A reversal only targets ledger entries and an authorization has none, so it is refused with <code>UNKNOWN_ORIGINAL</code> and the hold stays.</td>
-      <td>The merchant voids the sale; the customer cancels before dispatch.</td>
-      <td>A void request that releases the hold immediately, plus a partial void for amounts adjusted downwards.</td></tr>
-  <tr><td><strong>A settlement that does not fit</strong></td>
-      <td>More than the hold (<code>SETTLEMENT_EXCEEDS_HOLD</code>) or from another account (<code>UNKNOWN_AUTHORIZATION</code>) is refused; the authorization stays ACTIVE with its hold.</td>
-      <td>A tip or fuel amount above the authorized figure; a clearing record routed to the wrong account.</td>
-      <td>A configured tolerance per merchant category; above it, route to an exceptions queue rather than refusing silently.</td></tr>
+  <tr><th style="width:21%">Ending</th><th style="width:26%">My ledger</th><th style="width:23%">Real world</th><th>What I'd mandate</th></tr>
+  <tr><td>Declined for funds</td><td>DECLINED, no hold (Auth-B)</td><td>Card declined at the till</td><td>Decline code and customer notice</td></tr>
+  <tr><td>Refused, structural</td><td>Also shows as DECLINED</td><td>Blocked card, purchase abroad</td><td>Distinct reason codes</td></tr>
+  <tr><td>Duplicate ID</td><td>Resend refused, no second hold</td><td>Network retry</td><td>Return the original answer</td></tr>
+  <tr><td>Never settled</td><td>Hold blocks money forever</td><td>Unused deposit, cancelled order</td><td>Expiry as a new event</td></tr>
+  <tr><td>Cancelled first</td><td>Can't be expressed</td><td>Merchant void</td><td>A void that releases the hold</td></tr>
+  <tr><td>Settlement doesn't fit</td><td>Refused, hold stays</td><td>Tip over the hold</td><td>Tolerance, then exceptions queue</td></tr>
 </table>
-
-<p>Two related cases. Auth-A ends with a matching settlement for less than the hold (185.00 of 200.00)
-and the rest is released; a second capture is refused as <code>ALREADY_SETTLED</code>, so split
-shipments cannot be modelled, and production needs multi-capture up to the hold with a final-capture
-flag. The mirror case is a settlement with no authorization at all (Auth-Z). My ledger refuses it and
-moves no money, but in a real card scheme the refusal does not stop money leaving the bank: the
-clearing record normally arrives with the amount already owed to the scheme. Forced and offline
-presentments that scheme rules allow should be posted, and the rest routed to exceptions and
-chargebacks, never just dropped.</p>
-<p>One behaviour I would keep as it is: a hold survives a later debit, and its settlement is accepted
-even when available has gone negative (900.00 settles with available at −700.00). The merchant was
-promised that money at authorization time. The figures in this section come from
-<code>docs/bench/Probe.java</code> or from the tests.</p>
+<p>A settlement with no authorization (Auth-Z) moves nothing from the account, but the scheme still
+expects payment, so production routes it to a suspense account.</p>
 
 <h2>4. What I cut and why</h2>
-
 <table>
-  <tr><th style="width:22%">Cut</th><th style="width:30%">Why it was out of scope</th><th style="width:48%">Production risk it defers</th></tr>
-  <tr><td><strong>Concurrency</strong></td>
-      <td>One caller, one thread.</td>
-      <td>Two authorizations racing for the same available balance could both be approved. Writes need to be serialized per account.</td></tr>
-  <tr><td><strong>Persistence</strong></td>
-      <td>The brief rules out a database.</td>
-      <td>A restart loses everything. The append-only design maps onto an insert-only table without changing the model.</td></tr>
-  <tr><td><strong>Maker-checker and reason codes</strong></td>
-      <td>The brief's requests carry no approver or reason.</td>
-      <td>One person can rewrite closed days (the failing test). Fees are refunded on every reversal that clears a day, including ones a customer asked for.</td></tr>
-  <tr><td><strong>Overdraft limit on plain debits</strong></td>
-      <td>The brief sets no limit, and its back-dated debit has to be accepted.</td>
-      <td>Any debit is accepted however large: a 1,000,000.00 debit takes an account to −999,000.00. Debits ignore holds too.</td></tr>
-  <tr><td><strong>Date checks</strong></td>
-      <td>Not needed for the brief's requests; the late instalment credit relies on the last one.</td>
-      <td>A settlement dated before its authorization is accepted, and so is a reversal dated before its original, which can create overdrafts and fees that never happened. A request keeps the booking day it states even when that day has already closed.</td></tr>
-  <tr><td><strong>Hold expiry, void, multi-capture</strong></td>
-      <td>Not in the brief (section 3).</td>
-      <td>Customers' money stays locked by holds that will never settle.</td></tr>
-  <tr><td><strong>Calendar</strong></td>
-      <td>The brief only has Day 1 to Day 6.</td>
-      <td>No weekends, holidays, cut-off times or day-count basis, all of which decide real value dates and interest.</td></tr>
-  <tr><td><strong>One six-day window</strong></td>
-      <td>That is the brief's world.</td>
-      <td>No statement cycle or period close; interest is capitalized once; the fee re-check grows with history (section 1).</td></tr>
-  <tr><td><strong>Foreign exchange</strong></td>
-      <td>No rates given; mixing currencies would invent one.</td>
-      <td>Requests in another currency are refused, but real cards are used abroad.</td></tr>
-  <tr><td><strong>Fee and interest model</strong></td>
-      <td>The brief gives one flat fee and one rate.</td>
-      <td>Fees exist only in AED, with no tariff, cap or waiver; overdrawn balances are not charged interest.</td></tr>
-  <tr><td><strong>Double-entry</strong></td>
-      <td>Only customer accounts exist.</td>
-      <td>Fee income and interest expense are never posted to the bank's own accounts, so the ledger cannot be reconciled to a general ledger; money is only checked to add up per account.</td></tr>
-  <tr><td><strong>Indexes and snapshots</strong></td>
-      <td>Full scans keep every number easy to verify.</td>
-      <td>Cubic growth per request (section 1).</td></tr>
+  <tr><th style="width:32%">Cut</th><th>Risk it defers</th></tr>
+  <tr><td>Concurrency</td><td>Two authorizations could spend the same money</td></tr>
+  <tr><td>Persistence</td><td>A restart loses everything</td></tr>
+  <tr><td>Maker-checker, reason codes</td><td>One person rewrites closed days; every reversal refunds fees</td></tr>
+  <tr><td>Debit limits</td><td>Any debit is accepted, however large</td></tr>
+  <tr><td>Date checks</td><td>A settlement or reversal dated before its original is accepted</td></tr>
+  <tr><td>Hold expiry and voids</td><td>Money locked by holds that never settle</td></tr>
+  <tr><td>Calendar, FX, double-entry</td><td>No business days, foreign spending or GL reconciliation</td></tr>
 </table>
-
-<p>I cut these to keep the core small enough that every number in it can be checked by hand, and to
-put the effort into what the brief actually tests: value dating, fees and interest. Three gaps that
-started on this list are now fixed in the code: a resent request is refused instead of applied twice,
-money value-dated in the future is not available to spend, and nothing is accepted once Day 6 has
-closed and interest is credited.</p>
+<p>I cut these to keep every number checkable by hand and spend the effort on what the brief tests.</p>
 
 </body>
 </html>
