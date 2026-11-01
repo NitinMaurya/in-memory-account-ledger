@@ -11,10 +11,33 @@ suite and a replay program. The assessment brief is in [`brief.md`](brief.md).
 > architecture and trade-offs document (Part 2) is still to come. The commit history and
 > [`WORKLOG.md`](WORKLOG.md) record the work as it happened.
 
+## Quick start
+
+Needs JDK 21+ and Maven 3.9+ (`java -version`, `mvn -v`). From a terminal:
+
+```bash
+git clone https://github.com/NitinMaurya/in-memory-account-ledger.git
+cd in-memory-account-ledger
+
+# 1. Run the test suite: expect "Tests run: 104, Failures: 0" and BUILD SUCCESS
+mvn test
+
+# 2. Replay the brief's event stream and print the report
+mvn -q compile
+java -cp target/classes ledger.scenario.Main
+
+# 3. Run the one deliberately failing test: expect "Tests run: 1, Failures: 1" and BUILD FAILURE
+mvn test -Dgroups=known-gap -DexcludedGroups=
+```
+
+The same commands work on Windows (PowerShell or cmd). Details: [running the replay](#running-the-replay),
+[reading the output](#reading-the-output), [running the tests](#running-the-tests).
+
 ---
 
 ## Contents
 
+- [Quick start](#quick-start)
 - [What it does](#what-it-does)
 - [Design principles](#design-principles)
 - [Getting started](#getting-started)
@@ -91,6 +114,9 @@ mvn -q compile
 java -cp target/classes ledger.scenario.Main
 ```
 
+In an IDE (IntelliJ IDEA, or VS Code with the Java extension), open the folder as a Maven project
+and run `ledger.scenario.Main`.
+
 This replays the brief's event stream (E1 to E10, in the order given) and prints:
 
 ```
@@ -127,12 +153,34 @@ Day   ACC-001 closing (AED)     fee   refund   interest   ACC-002 closing (BHD) 
 
 Interest credited on Day 6 (included in Day 6): ACC-001 AED 1.03, ACC-002 BHD 0.008
 Final balances: ACC-001 AED 466.03, ACC-002 BHD 10.008
+
+LEDGER: every entry in the order it was written; nothing is ever changed or deleted
+
+Entry   From                Account   Type              Amount   Booked   Value
+-----   -----------------   -------   -------------   --------   ------   -----
+L0001   E1                  ACC-001   CREDIT          +1200.00        1       1
+L0002   E2                  ACC-001   DEBIT            -950.00        1       1
+L0003   E4                  ACC-001   CREDIT           +400.00        3       3
+L0004   E5                  ACC-001   SETTLEMENT       -185.00        4       4
+L0005   E7                  ACC-001   DEBIT            -620.00        5       2
+L0006   FEE-ACC-001-D2      ACC-001   OVERDRAFT_FEE     -25.00        5       2
+L0007   FEE-ACC-001-D4      ACC-001   OVERDRAFT_FEE     -25.00        5       4
+L0008   FEE-ACC-001-D5      ACC-001   OVERDRAFT_FEE     -25.00        5       5
+L0009   E9                  ACC-001   REVERSAL         +620.00        6       2
+L0010   REFUND-ACC-001-D2   ACC-001   FEE_REFUND        +25.00        6       2
+L0011   REFUND-ACC-001-D4   ACC-001   FEE_REFUND        +25.00        6       4
+L0012   REFUND-ACC-001-D5   ACC-001   FEE_REFUND        +25.00        6       5
+L0013   E10                 ACC-002   INSTALMENT        +3.333        5       5
+L0014   E10                 ACC-002   INSTALMENT        +3.333        5       5
+L0015   E10                 ACC-002   INSTALMENT        +3.334        5       5
+L0016   INT-ACC-001-D6      ACC-001   INTEREST           +1.03        6       6
+L0017   INT-ACC-002-D6      ACC-002   INTEREST          +0.008        6       6
 ```
 
 ## Reading the output
 
 The report has **two views of the same replay**, because back-dated entries change a day's numbers
-after it has closed.
+after it has closed, followed by **the ledger itself**.
 
 **1. Day-end log: each day as it was when it closed.** What the bank knew that night.
 
@@ -146,6 +194,11 @@ after it has closed.
 shows the day's closing balance, the overdraft fee and any refund dated that day, and that day's
 rounded interest.
 
+**3. Ledger: every entry in the order it was written.** *From* is the event that caused the entry,
+or the fee, refund or interest the ledger generated itself. *Booked* is the day it was written,
+*Value* the day it counts for. E3, E6 and E8 have no entries: E3 only placed a hold, and E6 and E8
+were refused.
+
 What to look for:
 
 | Where | What it shows |
@@ -156,6 +209,7 @@ What to look for:
 | Day 5: ACC-002 still 0.000 in the day-end log | E10 is booked Day 5 but arrives after Day 5 closed (it is listed after E9), so it wasn't there that night |
 | Day 6: fees refunded for Day 2, Day 4, Day 5 | E9 reverses E7, so those days are no longer negative; each fee is refunded by a new entry dated the fee's own day |
 | Final view, Days 2, 4 and 5: fee 25.00, refund 25.00 | Three fees and three refunds, net zero: the balances are back to their pre-E7 values (250.00, 650.00, 465.00, 465.00) |
+| Ledger: L0005 to L0012 | The back-dated debit, its three fees (booked Day 5), the reversal and three refunds (booked Day 6) all stay on the books; the reversal and refunds carry the value dates of what they undo |
 | Final balances: ACC-001 466.03, ACC-002 10.008 | 465.00 plus 1.03 interest (0.10 + 0.10 + 0.26 + 0.19 + 0.19 + 0.19); 10.000 plus 0.004 on each of Days 5 and 6 |
 
 Every figure can be checked by hand from the rules. [`NUMBERS.md`](NUMBERS.md) shows the
@@ -165,7 +219,9 @@ expect different numbers.
 ## Running the tests
 
 ```bash
-mvn test
+mvn test                                    # every test except the known gap: 104 tests, all pass
+mvn test -Dtest=OverdraftFeeTest            # one test class
+mvn test -Dtest='OverdraftFeeTest#p1_*'     # matching methods in one class
 ```
 
 The suite is organised in layers:

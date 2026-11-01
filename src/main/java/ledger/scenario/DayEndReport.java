@@ -13,7 +13,8 @@ import ledger.core.Outcome;
 
 /**
  * Two views of the same replay. The day-end log shows each day as the bank saw it that night. The
- * final view shows every day as it ends up once back-dated entries (E7, E9, E10) are counted.
+ * final view shows every day as it ends up once back-dated entries (E7, E9, E10) are counted. The
+ * ledger section lists the entries behind both.
  */
 public final class DayEndReport {
 
@@ -83,7 +84,21 @@ public final class DayEndReport {
         }
         out.append("Interest credited on Day 6 (included in Day 6): ").append(String.join(", ", credited)).append('\n');
         out.append("Final balances: ").append(String.join(", ", finals)).append('\n');
+
+        out.append("\nLEDGER: every entry in the order it was written; nothing is ever changed or deleted\n\n");
+        out.append(table(List.of("Entry", "From", "Account", "Type", "Amount", "Booked", "Value"), ledgerRows(), "LLLLRRR"));
         return out.toString();
+    }
+
+    private List<List<String>> ledgerRows() {
+        List<List<String>> rows = new ArrayList<>();
+        for (Entry entry : ledger.entries()) {
+            String amount = amount(entry.amount());
+            rows.add(List.of(entry.entryId(), entry.eventId(), entry.account(), entry.type().name(),
+                    entry.amount().isNegative() ? amount : "+" + amount,
+                    String.valueOf(entry.bookingDay()), String.valueOf(entry.valueDate())));
+        }
+        return rows;
     }
 
     private List<String> finalHeaders() {
