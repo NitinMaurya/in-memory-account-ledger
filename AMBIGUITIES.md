@@ -1,275 +1,106 @@
 # Ambiguities
 
-Every place where the brief could be read more than one way, the choice I made, and what the
-other choice would have meant. Each decision is pinned by a test.
+Where the brief could be read more than one way, what I chose, and what the other choice would have
+changed. When it was unclear I went, in order, by: the written rule, the criteria that are true, the
+non-negotiables, what a real bank would do, and the simplest option to explain.
 
-## How I decided
+## The decisions that shaped the result
 
-When the brief was unclear, I chose using this order:
+| # | Question | My choice | The alternative | What it changes |
+|---|---|---|---|---|
+| A1 | Does a back-dated debit cause fees for days already closed? | Yes: re-check closed days | Freeze closed days | **3 fees**, not 1 (criterion 2 refused) |
+| A4 | Are E7's fees refunded when E9 reverses it? | Yes, policy P-1 | Keep the fees | ACC-001 ends at **466.03**, not 390.93 (criterion 6 accepted) |
+| A5 | Interest on each night's balance, or the corrected one? | Corrected | Frozen each night | Interest **1.03**, not 0.84 |
+| A15 | Which ledger balance does available use? | The one on the request's day | All posted entries | Auth-B **declined**; money dated later can't be spent early |
+| A10 | "Three equal instalments" of BHD 10.000 | 3.333 + 3.333 + 3.334 | 3 × 3.334 | No money created (criterion 7 refused) |
+| A9 | What is credited on Day 6? | The exact sum of the rounded days | Discard a remainder | Nothing discarded (criterion 8 refused) |
+| A16 | E10 is booked Day 5 but listed after E9 | Apply it late, in the order given | Re-sort by booking day | ACC-002 is 0.000 on the night of Day 5 |
+| A36 | Does a fee count in the next day's fee check? | Yes, as the rule's wording says | Leave fees out | Nothing in the brief; matters in general |
 
-1. **The written rules.** If a rule's wording decides it, follow it literally.
-2. **The acceptance criteria that are true.** They show what the author intended.
-3. **The non-negotiables.** Append-only, money adds up, each currency at its own precision.
-4. **What a real bank would do.**
-5. **The simplest option to explain.**
+**A1. Fees for days already closed.** E7 lands on Day 5 dated Day 2, turning closed Days 2 and 4
+negative. A day's balance is defined by value date and the fee by that balance, so both are charged
+when E7 lands, and Day 5 at its own close. Freezing closed days would leave Days 2 and 4 negative with
+no fee. Checking fees only at the end would see E9 first and charge nothing, as if the bank knew on
+Day 5 about a reversal on Day 6. *Test:* `OverdraftFeeTest.br25_aBackDatedDebitCausesAFeeForEveryClosedDay…`
 
-**Only two decisions change a final ledger balance**: A4 and A5. A1 changes how many fees are
-charged, but not where the account ends up. A15 decides Auth-B: approving it would leave a 90.00 hold
-that never expires, so it changes the final *available* balance, not the ledger. Everything else has
-one clearly better answer, or doesn't affect the brief's figures.
+**A4. Refund after the reversal.** The brief has no refund rule, so this is my judgment. E9 says E7
+should never have happened, so a customer shouldn't pay for it, and the CBUAE Consumer Protection
+Standards require charges caused by a bank's error to be refunded immediately, with no benefit to the
+bank. Each refund is a new +25.00 entry booked on Day 6 and dated the fee's own day, so the interest
+the fee cost comes back too: three fees and three refunds, nothing deleted. Only days from the
+reversal's value date onwards are refunded, and only if they're non-negative without fees. In
+production a reversal would carry a reason code: a bank error is refunded, a customer's own
+cancellation may not be. *Test:* `OverdraftFeeTest.p1_…`
 
-| Decision | My choice | Effect | The alternative would give |
-|---|---|---|---|
-| A4: fees after the reversal | Refunded | ACC-001 ends at **466.03** | 390.93 (fees kept) |
-| A5: interest on which balances | As corrected | **1.03** interest | 0.84 (frozen each night) |
-| A1: fees for days already closed | Re-check them | **3 fees** charged on Day 5 | 1 fee, or none. Because every fee is refunded after E9, the final balance is 466.03 either way |
+**A5. Corrected balances for interest.** Interest is paid only on Day 6, when the true balances are
+known. Freezing each night's figure would pay nothing for Day 5 (−230.00 that night, 465.00 in the
+end), so interest would be paid on balances later shown to be wrong.
 
----
+**A15. Available by value date.** The brief defines available as "ledger balance minus active holds",
+and its ledger balance is by value date. E7 is posted and dated Day 2 when Auth-B asks on Day 5, so it
+counts and Auth-B is declined at −205.00. A credit dated Day 6 isn't in the account on Day 2, so it
+can't be spent then. *Tests:* `AuthorizationTest.br15_aBackDatedDebit…`, `AuthorizationTest.br9_br15_…`
 
-## Time and value dating
+**A10. Unequal instalments.** 10,000 fils don't split into three equal parts at any precision. Floor
+the shares and give the leftover fils to the last part; three times 3.334 would credit 0.002 BHD
+nobody paid.
 
-**A1. Does a back-dated entry cause fees for days that have already closed?**
-E7 is booked on Day 5 but dated Day 2. Days 2 and 4 had closed positive; with E7 counted they
-close negative.
-- **Choice:** re-check every closed day after each accepted event, so E7 charges Days 2 and 4, and
-  Day 5 is charged at its own close: **three fees**.
-- **Why:** the brief defines a day's closing balance by value date, and the fee by the closing
-  balance. Freezing closed days would leave Days 2 and 4 negative with no fee (one fee). Checking fees
-  only once at the end would see E9 first and charge nothing, as if the bank knew on Day 5 about a
-  reversal that happened on Day 6.
-- **Test:** `OverdraftFeeTest.br25_aBackDatedDebitCausesAFeeForEveryClosedDay…`
+**A9. The Day 6 credit.** The brief requires the rounded days to sum to the credit, so the credit *is*
+their sum and there is nothing to discard.
 
-**A2. When is each fee charged?**
-- **Choice:** fees for days already closed are charged as soon as the entry that causes them lands;
-  the current day's fee waits for that day's close.
-- **Why:** the current day isn't over, and a deposit could still arrive. It changes nothing here:
-  Auth-B is declined either way (available −205, or −230 with the Day 5 fee).
+**A16. Replay order.** The brief says "replayed in this order", so E10 arrives after Day 5 has closed
+and keeps its stated booking day. The day-end log shows ACC-002 at 0.000 that night; the final view
+counts it for Day 5.
 
-**A3. What dates does a fee carry?**
-- **Choice:** value date = the day it is for; booking day = the day the bank found it. E7's fees for
-  Days 2 and 4 are booked on Day 5.
-- **Why:** the brief says fees are booked with the value date of the day assessed. A fee is
-  therefore never dated after its booking day (checked after every replay step).
+**A36. A fee in the next day's fee check.** The closing balance is "all entries", and a fee is an
+entry, so a −1.00 day becomes −26.00 and can make the next day negative too. In the brief it changes
+nothing (three fees either way). A bank might cap fees or ignore a balance pushed negative only by its
+own fee; that's a tariff choice the brief doesn't make. The refund check (A4) leaves fees out on
+purpose: it asks whether the day would be negative without the mistake.
 
-**A16. E10 is booked Day 5 but listed after E9 (Day 6).**
-- **Choice:** replay strictly in the listed order. E10 is applied after Day 6 has started, as a late,
-  back-dated arrival, and its entries keep the booking day it states (Day 5).
-- **Why:** the brief says "replayed in this order". Sorting by booking day would quietly change the
-  stream I was given. In the day-end log ACC-002 is still 0.000 on Day 5, because E10 wasn't there
-  that night; in the final view it counts for Day 5. Entries the ledger creates itself (fees, refunds,
-  interest) are booked on the day it actually creates them.
+## Every smaller decision
 
-**A25. An event booked or dated outside Days 1–6.**
-- **Choice:** refuse it (`OUTSIDE_WINDOW`), record it, move no money.
-- **Why:** fees and interest only exist inside the window. The brief's events never leave it, so no
-  number changes.
+None of these changes the brief's figures, or the brief's wording settles it.
 
-**A39. A request that arrives after Day 6 has closed.**
-- **Choice:** refuse it (`OUTSIDE_WINDOW`), record it, move no money.
-- **Why:** interest is credited when Day 6 closes. Accepting a later request would change the daily
-  amounts without changing the credit, and the credit must equal their sum.
-- **Test:** `WindowTest.br4_br31_aRequestAfterDay6HasClosedIsRefused…`
-
-**A32. Can days close out of order, or twice?**
-- **Choice:** no. Days close in order, once each; anything else is a programming error.
-- **Why:** fee checks depend on knowing which days have closed.
-
-**Days are numbers, not calendar dates.** The brief only ever says "Day 1" to "Day 6". Real dates
-would mean inventing a start date, weekends and holidays the brief never gives.
-
-## Overdraft fees
-
-**A4. Are E7's fees refunded when E9 reverses it?**
-- **Choice:** yes (policy P-1). When a reversal makes a charged day non-negative again, that day's fee
-  is refunded by a **new** entry of AED 25.00, booked on the reversal's day (Day 6) and dated the
-  fee's own day (Days 2, 4, 5). The books show three fees and three refunds, net zero; nothing is
-  deleted. ACC-001 ends at 466.03, and the balances of Days 2–5 return to their pre-E7 values, which is
-  why I accept criterion 6.
-- **Why:** E9 says E7 should never have happened, and a customer shouldn't pay for a debit that was
-  undone. Dating each refund on its fee's day also gives back the interest the fee cost. This is
-  also what a UAE bank must do when the debit was its own error: the CBUAE Consumer Protection
-  Standards require charges caused by an error to be refunded immediately, and the bank must not
-  benefit from its error.
-- **Only days from the reversal's value date onwards**, and only when that day is non-negative
-  without fees. A day before the reversal wasn't changed by it, so its fee stays.
-- **The alternative:** keep the fees (390.93). The brief defines no refund rule, so this is a
-  judgment call, and the reason I list it here.
-- **What I'd add in production:** a reason code on every reversal. A refund fits a bank error, fraud
-  or a mistaken posting; a genuine transaction cancelled at the customer's request might keep its
-  fees. The brief gives E9 no reason, so the ledger refunds on every reversal that clears a day.
-
-**A36. Does a fee count towards the next day's fee check?**
-- **Choice:** yes. A day closing at −1.00 is charged 25.00, so the next day starts at −26.00, and a
-  10.00 deposit that day still leaves it negative and charged.
-- **Why:** the brief defines the closing balance as all entries with value date on or before the day,
-  and a fee is an entry. Leaving fees out would mean the fee check uses a different balance from the
-  one the customer sees. In the brief it changes nothing: three fees either way.
-- **What a bank might add:** many banks cap fees per month or ignore a balance pushed negative only by
-  their own fee. That is a tariff decision the brief doesn't make.
-- **Note:** the refund check (A4) deliberately leaves fees out, because it asks whether the day would
-  be negative without the reversed mistake.
-
-**A37. Does a back-dated credit that clears a day refund its fee?**
-- **Choice:** no. Only a reversal triggers a refund.
-- **Why:** a reversal says the original entry was wrong, so the fee it caused was never deserved. A late
-  credit only says money arrived; the day really was overdrawn when it closed. If the credit was late
-  because of the bank, that is a reason code and a refund decision, not something the ledger can infer.
-
-**A18. A fee on the BHD account?**
-- **Choice:** none. The fee exists only in AED.
-- **Why:** charging BHD 25.000 or converting would invent a tariff or an exchange rate. ACC-002
-  never goes negative anyway.
-
-**A20. "Once per day": a day that is checked again, dips negative twice, or was refunded.**
-- **Choice:** at most one fee per account per day, ever, even after a refund.
-- **Why:** the rule says once per day per account.
-
-## Interest
-
-**A5. Interest on each day's balance as it was that night, or as later corrected?**
-- **Choice:** as corrected: interest is computed from the ledger as it stands. 1.03 for ACC-001.
-- **Why:** interest is only paid on Day 6, when the true balances are known, and the brief says
-  0.04% "on the closing ledger balance". Freezing each night's figure would give 0.84 (Day 5 closed at
-  −230.00 that night and would earn nothing), paying interest on balances later shown to be wrong.
-
-**A6. Do fees and refunds count in the balance that earns interest?**
-- **Choice:** yes. A fee lowers that day's interest; its refund, dated the same day, restores it.
-- **Why:** both are part of the closing ledger balance.
-
-**A7. Does the Day 6 interest credit earn interest itself?**
-- **Choice:** no.
-- **Why:** that would be interest on interest.
-
-**A8. Rounding mode.**
-- **Choice:** half-up, per day, to the fils.
-- **Why:** ordinary commercial rounding. No balance in the brief lands on an exact half, so the choice
-  changes no figure; a test on an exact tie proves the behaviour (AED 12.50 → 0.01).
-
-**A9. What is credited on Day 6?**
-- **Choice:** exactly the sum of the six rounded days.
-- **Why:** the brief requires the rounded days to sum to the credit, so the credit is their sum and
-  nothing can be left over to discard.
-
-**A19. Does a zero balance earn interest?**
-- **Choice:** no. Zero isn't positive.
-
-**A23. The order of things on Day 6.**
-- **Choice:** fee check, then the interest credit.
-- **Why:** fees affect the balance; the credit itself doesn't earn Day 6 interest.
-
-## Card authorizations and settlements
-
-**A15. Which ledger balance does available use?**
-- **Choice:** the ledger balance on the day of the request (every posted entry value-dated on or
-  before that day), minus active holds. A back-dated entry already posted counts; an entry value-dated
-  later doesn't.
-- **Why:** the brief defines available as "ledger balance minus active holds", and its ledger balance
-  is by value date. E7 is on the books and dated Day 2 when Auth-B asks on Day 5, so it counts, and
-  Auth-B is declined (available −205.00). Money dated Day 6 isn't in the account on Day 2, so it can't
-  be spent then.
-- **Test:** `AuthorizationTest.br15_aBackDatedDebitAlreadyPostedCountsAgainstAvailable`,
-  `AuthorizationTest.br9_br15_moneyValueDatedLaterIsNotAvailableYet`
-
-**A12. A settlement for less than the hold (Auth-A: 185.00 of 200.00).**
-- **Choice:** accept it, take 185.00 and release the whole 200.00 hold.
-- **Why:** the merchant has finished; leaving 15.00 held would block the customer's money. Criterion
-  3 says accept.
-
-**A13. A settlement for more than the hold, or a second settlement.**
-- **Choice:** refuse both (`SETTLEMENT_EXCEEDS_HOLD`, `ALREADY_SETTLED`).
-- **Why:** money must not leave beyond what was authorized.
-
-**A14. A settlement for an authorization that doesn't exist (Auth-Z).**
-- **Choice:** refuse it (`UNKNOWN_AUTHORIZATION`), record it, move no money from the account.
-- **Why:** with no authorization there was no hold and no evidence the customer agreed to the payment,
-  so taking 180.00 from the account would be taking money nobody approved. I checked criterion 4
-  against this reasoning and accept it.
-- **In a real bank:** refusing it doesn't make the money disappear. The card scheme still expects the
-  bank to pay a valid clearing record, so the bank pays from a suspense account and investigates: post
-  it to the customer if it turns out to be a legitimate offline or forced transaction, otherwise raise
-  a chargeback.
-
-**A26. Settling an authorization that was declined.** Refused as unknown: a declined authorization
-reserved nothing, so there is no hold to settle against.
-
-**A27. Settling another account's authorization.** Refused as unknown: one account's hold can't pay
-another account's settlement.
-
-**A28. A second authorization reusing an ID.** Refused (`DUPLICATE_AUTHORIZATION`): each ID must
-point to exactly one hold.
-
-## Reversals
-
-**A17. E9 states no amount.**
-- **Choice:** the reversal copies the original's amount with the opposite sign (+620.00), and carries
-  the value date it is given (Day 2).
-- **Why:** a reversal cancels one specific transaction; copying the amount means it can't be wrong.
-
-**A29. Reversing a request that was refused.** Refused as unknown: it never moved money.
-
-**A30. What can be reversed?** Only plain credits and debits. Settlements, fees, refunds, interest,
-instalments and other reversals are refused (`NOT_REVERSIBLE`): card captures are undone through
-refunds or chargebacks, fees and interest are the bank's own postings, and reversing a reversal
-would just recreate the original.
-
-**A31. Reversing another account's transaction.** Refused as unknown.
-
-## Instalments
-
-**A10. "Three equal instalments" of BHD 10.000 is impossible at 3 decimal places.**
-- **Choice:** floor the shares and give the leftover fils to the last part: 3.333 + 3.333 + 3.334.
-- **Why:** the parts must add up to exactly 10.000. Three times 3.334 is 10.002, which creates money
-  (criterion 7); three times 3.333 loses a fils. More decimal places can't help, because ten never
-  divides evenly by three. First or last are equally valid; last is the usual convention.
-
-**A11. One value date, or spread over days?** All on Day 5, the event's value date. Spreading them
-would need a Day 7, outside the window.
-
-**A33. What type of entry is each part?** A separate `INSTALMENT` type, so the parts stay traceable
-as one split and can't be reversed one third at a time.
-
-**A34. Zero instalments, or more parts than fils.** Refused (`INVALID_INSTALMENTS`): every part must
-be at least one fils.
-
-## Records and output
-
-**A21. Are refused requests kept?** Yes, in the event log with their reason, but they move no money.
-The output has to show errors, and nothing is ever deleted.
-
-**A22. Opening balance.** A property of the account (zero), not an entry. There is no opening event
-in the stream.
-
-**A38. The same request ID arriving twice.**
-- **Choice:** the second one is refused (`DUPLICATE_EVENT_ID`) and recorded, whatever happened to the
-  first, so a retry never moves money twice. A refused request's ID is used up too.
-- **Why:** networks resend messages. Without this, the same credit sent twice was applied twice.
-- **In a real bank:** a resend of an identical request would get the original answer back rather than
-  a refusal, so the sender sees a consistent result.
-- **Test:** `AccountsTest.br34_…`, `BusinessRuleInvariantsTest.br34_noTwoAcceptedRequestsShareAnId`
-
-**A24. What counts as an "error" in the output?** A refused request with its reason. In the brief:
-E6 (unknown authorization) and E8 (insufficient available).
-
-**Unknown accounts and other currencies.** An event for an account that doesn't exist, or with an
-amount in another currency, is refused (`UNKNOWN_ACCOUNT`, `CURRENCY_MISMATCH`). The brief gives
-no exchange rate, so AED and BHD are never mixed.
-
-**A35. Which "per day" does the replay print?** Both: a day-end log (each day as it was when it
-closed) and a final view (each day by value date after every event). Back-dating changes a day's
-numbers after it closes, so one view alone would hide either what the bank knew or how the history
-ended up. Day 5 is −230.00 that night and 465.00 in the end.
+| # | Question | Choice |
+|---|---|---|
+| A2 | When is a fee charged? | Closed days: as soon as the entry lands. The current day: at its close |
+| A3 | What dates does a fee carry? | Value date = the day it's for; booking day = the day it was found |
+| A6 | Do fees and refunds count for interest? | Yes, both are in the closing balance |
+| A7 | Does the interest credit earn interest? | No, that would be interest on interest |
+| A8 | Rounding | Half-up per day to the fils; no brief balance lands on a tie |
+| A11 | Instalments on one day or spread? | All on Day 5; spreading needs a Day 7 |
+| A12 | Settlement for less than the hold (185 of 200) | Accept it and release the whole hold (criterion 3) |
+| A13 | Settlement over the hold, or a second one | Refused |
+| A14 | Settlement with no authorization (Auth-Z) | Refused, no money moves: no hold and no proof the customer agreed (criterion 4). In a real bank it goes to a suspense account |
+| A17 | E9 gives no amount | Copy the original's amount, opposite sign |
+| A18 | A fee on the BHD account? | None; the fee exists only in AED |
+| A19 | Does a zero balance earn interest? | No |
+| A20 | "Once per day" | At most one fee per account per day, ever, even after a refund |
+| A21 | Are refused requests kept? | Yes, with their reason; they move no money |
+| A22 | Opening balance | A property of the account, not an entry |
+| A23 | Order on Day 6 | Fee check, then the interest credit |
+| A24 | What is an "error" in the output? | A refused request with its reason (E6, E8) |
+| A25 | An event outside Days 1–6 | Refused |
+| A26–A28 | Settling a declined or another account's authorization; reusing an authorization ID | Refused |
+| A29–A31 | Reversing a refused request, a non-credit/debit, or another account's entry | Refused |
+| A32 | Days closing out of order or twice | Not allowed |
+| A33 | Instalment entry type | Its own type, so parts can't be reversed one at a time |
+| A34 | Zero instalments, or more parts than fils | Refused |
+| A35 | Which "per day" to print | Both: each day as it closed, and as it ended up |
+| A37 | Does a back-dated credit refund a fee? | No, only a reversal; a late credit doesn't prove the fee was wrong |
+| A38 | The same request ID twice | The second is refused, so a retry never moves money twice |
+| A39 | A request after Day 6 has closed | Refused, so the interest credit always equals the daily sum |
+| — | Unknown account or another currency | Refused; AED and BHD are never mixed |
+| — | Calendar dates | Days are numbers 1–6; the brief gives no calendar |
 
 ## Known limitations
 
-These are not resolved in the code, and are listed so nobody assumes they are:
+Not resolved in the code:
 
-- **No approval for back-dated entries.** One caller can post a debit that rewrites closed days. This
-  is the one failing test (`KnownGapBackDatedDebitApprovalTest`).
-- **A settlement dated before its authorization** would be accepted.
-- **A reversal dated earlier than its original** would be accepted, and could create an overdraft
-  that never existed. In production it should be required to carry the original's value date.
-- **Holds never expire**, and an authorization cannot be cancelled before settlement.
-- **Plain debits have no limit.** A debit is accepted however far it takes the account below zero,
-  and it ignores active holds. The brief sets no limit, and its back-dated debit must be accepted.
-- **A request keeps the booking day it states,** even when that day has already closed (A16). The
-  ledger doesn't check it against the day it actually arrives.
+- **No approval for back-dated entries.** One caller can rewrite closed days. This is the one failing
+  test (`KnownGapBackDatedDebitApprovalTest`).
+- **Date checks.** A settlement dated before its authorization, or a reversal dated before its
+  original, is accepted. A request keeps a booking day that has already closed.
+- **Holds never expire** and can't be cancelled before settlement.
+- **Plain debits have no limit** and ignore active holds.
